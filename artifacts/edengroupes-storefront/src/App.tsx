@@ -1,0 +1,234 @@
+import { createContext, useContext, useMemo, useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
+import {
+  ArrowDownUp,
+  ArrowRight,
+  Banknote,
+  Box,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  Clock3,
+  Grid2X2,
+  Heart,
+  ListFilter,
+  MapPin,
+  Minus,
+  PackageCheck,
+  Plus,
+  Search,
+  ShieldCheck,
+  ShoppingCart,
+  SlidersHorizontal,
+  Sparkles,
+  Star,
+  Truck,
+  UserRound,
+  X,
+} from 'lucide-react';
+import { ErrorBoundary } from '@/components/error-boundary';
+import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  Breadcrumbs,
+  CartDrawer,
+  CategoryTile,
+  FilterRail,
+  Footer,
+  Header,
+  Logo,
+  ProductGrid,
+  ProductVisual,
+  SearchOverlay,
+  SectionHeading,
+  TrustStrip,
+  type CartLine,
+} from '@/components/storefront';
+import {
+  brands,
+  categories,
+  findBrand,
+  findCategory,
+  findProduct,
+  findProfession,
+  formatDzd,
+  products,
+  professions,
+  type Product,
+} from '@/data/store';
+import NotFound from '@/pages/not-found';
+import heroWorkshop from '../attached_assets/generated_images/edengroupes-workshop-hero.jpg';
+
+const queryClient = new QueryClient();
+
+type StoreContextValue = {
+  cart: CartLine[];
+  favorites: string[];
+  addToCart: (product: Product) => void;
+  toggleFavorite: (product: Product) => void;
+  updateQuantity: (id: string, quantity: number) => void;
+  removeLine: (id: string) => void;
+};
+
+const StoreContext = createContext<StoreContextValue | null>(null);
+
+function useStore() {
+  const context = useContext(StoreContext);
+  if (!context) throw new Error('Store context is missing');
+  return context;
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [, setLocation] = useLocation();
+
+  const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
+  const addToCart = (product: Product) => {
+    setCart((current) => {
+      const existing = current.find((line) => line.product.id === product.id);
+      return existing
+        ? current.map((line) => line.product.id === product.id ? { ...line, quantity: line.quantity + 1 } : line)
+        : [...current, { product, quantity: 1 }];
+    });
+    setDrawerOpen(true);
+  };
+  const toggleFavorite = (product: Product) => setFavorites((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id]);
+  const updateQuantity = (id: string, quantity: number) => setCart((current) => quantity < 1 ? current.filter((line) => line.product.id !== id) : current.map((line) => line.product.id === id ? { ...line, quantity } : line));
+  const removeLine = (id: string) => setCart((current) => current.filter((line) => line.product.id !== id));
+  const onSearch = (value: string) => setLocation(`/search?q=${encodeURIComponent(value)}`);
+
+  const store = { cart, favorites, addToCart, toggleFavorite, updateQuantity, removeLine };
+  return <StoreContext.Provider value={store}><div className="min-h-[100dvh] bg-[var(--ed-paper)] text-[var(--ed-ink)]">
+    <Header cartCount={cartCount} favoriteCount={favorites.length} onOpenSearch={() => setSearchOpen(true)} />
+    <main>{children}</main>
+    <Footer />
+    <CartDrawer open={drawerOpen} lines={cart} onClose={() => setDrawerOpen(false)} onQuantity={updateQuantity} onRemove={removeLine} />
+    <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} onSubmit={onSearch} />
+    <button onClick={() => setDrawerOpen(true)} className="fixed bottom-4 right-4 z-30 flex items-center gap-2 bg-[var(--ed-ink)] px-4 py-3 text-sm font-bold text-white shadow-lg md:hidden" data-testid="button-mobile-cart"><ShoppingCart size={17} /> Panier <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--ed-yellow)] px-1 text-xs text-[var(--ed-ink)]">{cartCount}</span></button>
+  </div></StoreContext.Provider>;
+}
+
+function Home() {
+  const [carousel, setCarousel] = useState(0);
+  const [cartFlash, setCartFlash] = useState<Product | null>(null);
+  const { favorites, addToCart, toggleFavorite } = useStore();
+  const featured = products.slice(0, 8);
+  const add = (product: Product) => { addToCart(product); setCartFlash(product); window.setTimeout(() => setCartFlash(null), 1200); };
+  return <div>
+    <section className="relative overflow-hidden bg-[var(--ed-ink)] text-white">
+      <div className="absolute inset-0 opacity-55"><img src={heroWorkshop} alt="" className="h-full w-full object-cover object-center" /></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-[var(--ed-ink)] via-[var(--ed-ink)]/90 to-[var(--ed-ink)]/35" />
+      <div className="relative mx-auto grid min-h-[590px] max-w-[1440px] items-end gap-8 px-5 pb-12 pt-20 md:grid-cols-[1.05fr_.95fr] md:items-center md:pb-20">
+        <div className="max-w-2xl">
+          <div className="mb-6 flex items-center gap-3"><span className="ed-mono bg-[var(--ed-yellow)] px-2 py-1 text-[10px] font-bold uppercase tracking-[.18em] text-[var(--ed-ink)]">Depuis Alger, pour vos chantiers</span><span className="ed-mono text-[10px] uppercase tracking-[.16em] text-white/55">Édition 2024</span></div>
+          <h1 className="ed-display max-w-xl text-6xl font-extrabold leading-[.88] tracking-tight md:text-8xl">Le bon outil.<br /><span className="text-[var(--ed-yellow)]">Le chantier avance.</span></h1>
+          <p className="mt-7 max-w-lg text-base leading-7 text-white/70 md:text-lg">Outillage professionnel, équipement d’atelier et solutions techniques. Choisis pour les réalités du terrain algérien.</p>
+          <div className="mt-8 flex flex-wrap gap-3"><Link href="/shop" className="ed-button inline-flex items-center gap-2 bg-[var(--ed-yellow)] px-5 py-4 text-sm font-bold text-[var(--ed-ink)] hover:bg-white" data-testid="link-hero-shop">Voir toute la boutique <ArrowRight size={17} /></Link><Link href="/profession/macon" className="ed-button inline-flex items-center gap-2 border border-white/30 px-5 py-4 text-sm font-semibold text-white hover:border-[var(--ed-yellow)] hover:text-[var(--ed-yellow)]" data-testid="link-hero-profession">Je suis un professionnel</Link></div>
+          <div className="mt-10 flex flex-wrap gap-5 text-xs text-white/60"><span className="flex items-center gap-2"><Truck size={15} className="text-[var(--ed-yellow)]" /> Livraison nationale</span><span className="flex items-center gap-2"><Banknote size={15} className="text-[var(--ed-yellow)]" /> Paiement à la livraison</span><span className="flex items-center gap-2"><ShieldCheck size={15} className="text-[var(--ed-yellow)]" /> Conseil technique</span></div>
+        </div>
+        <div className="hidden justify-end md:flex"><div className="w-[370px] border border-white/20 bg-[var(--ed-ink)]/45 p-5 backdrop-blur-sm"><div className="flex items-center justify-between border-b border-white/15 pb-4"><span className="ed-mono text-[10px] uppercase tracking-[.17em] text-[var(--ed-yellow)]">Dans l’atelier</span><span className="ed-mono text-[10px] text-white/45">01 / 03</span></div><div className="py-7"><p className="ed-display text-5xl font-bold">+1 200</p><p className="mt-2 text-sm text-white/65">références pour équiper<br />vos journées de travail.</p></div><div className="grid grid-cols-2 border-t border-white/15 pt-4 text-xs text-white/55"><span>CROWN · INGCO<br />BEETRO · FIXTOP</span><span className="text-right">Algérie<br />24 wilayas livrées</span></div></div></div>
+      </div>
+      <div className="absolute bottom-5 right-5 hidden items-center gap-2 md:flex"><button onClick={() => setCarousel(Math.max(0, carousel - 1))} className="grid h-9 w-9 place-items-center border border-white/30 hover:border-[var(--ed-yellow)] hover:text-[var(--ed-yellow)]" data-testid="button-hero-previous"><ChevronLeft size={17} /></button><button onClick={() => setCarousel(Math.min(2, carousel + 1))} className="grid h-9 w-9 place-items-center border border-white/30 hover:border-[var(--ed-yellow)] hover:text-[var(--ed-yellow)]" data-testid="button-hero-next"><ChevronRight size={17} /></button></div>
+    </section>
+    <TrustStrip />
+    <section className="mx-auto max-w-[1440px] px-5 py-16 md:py-20">
+      <SectionHeading eyebrow="Trouvez votre terrain" title="Une entrée par besoin." sub="Pas besoin de connaître la référence. Commencez par votre métier, votre univers ou votre prochain chantier." action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)]" data-testid="link-categories-all">Toutes les catégories <ArrowRight size={16} /></Link>} />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">{categories.slice(0, 8).map((category) => <CategoryTile key={category.slug} category={category} />)}</div>
+    </section>
+    <section className="bg-[#eae7df]"><div className="mx-auto max-w-[1440px] px-5 py-16 md:py-20"><SectionHeading eyebrow="Les essentiels du moment" title="Ce qui part en atelier." sub="Une sélection courte, utile, disponible maintenant — avec des prix affichés en dinars, sans détour." action={<Link href="/promotions" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)]" data-testid="link-featured-all">Voir les promotions <ArrowRight size={16} /></Link>} /><ProductGrid items={featured.slice(0, 4)} onAdd={add} onFavorite={toggleFavorite} favorites={favorites} /></div></section>
+    <section className="mx-auto max-w-[1440px] px-5 py-16 md:py-20"><div className="grid gap-5 md:grid-cols-[1.25fr_.75fr]"><Link href="/profession/macon" className="ed-noise relative min-h-[360px] overflow-hidden bg-[var(--ed-rust)] p-7 text-white md:p-10" data-testid="link-home-macon"><div className="absolute -right-12 top-10 h-64 w-64 rounded-full border-[34px] border-white/10" /><div className="relative flex h-full flex-col justify-between"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-white/60">Sélection métier 01</p><h2 className="ed-display mt-4 max-w-md text-6xl font-bold leading-[.88]">Pour ceux<br />qui bâtissent.</h2></div><div className="flex items-end justify-between gap-5"><p className="max-w-xs text-sm leading-6 text-white/75">EPI, mesure, électroportatif et consommables pour avancer sans perdre une journée.</p><span className="grid h-12 w-12 shrink-0 place-items-center bg-[var(--ed-yellow)] text-[var(--ed-ink)]"><ArrowRight /></span></div></div></Link><div className="grid gap-5"><Link href="/brand/INGCO" className="ed-card flex min-h-[168px] items-end justify-between bg-[var(--ed-yellow)] p-6 text-[var(--ed-ink)]" data-testid="link-home-ingco"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] opacity-60">Marque repère</p><h3 className="ed-display mt-3 text-5xl font-bold">INGCO</h3><p className="mt-1 text-sm opacity-70">L’énergie jaune pour chaque atelier.</p></div><ArrowRight /></Link><Link href="/category/mesure-detection" className="ed-card flex min-h-[168px] items-end justify-between bg-[var(--ed-ink)] p-6 text-white" data-testid="link-home-measure"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-white/50">Précision d’abord</p><h3 className="ed-display mt-3 text-4xl font-bold">Mesure & détection</h3><p className="mt-1 text-sm text-white/60">Niveaux, lasers, testeurs.</p></div><ArrowRight className="text-[var(--ed-yellow)]" /></Link></div></div></section>
+    <section className="ed-grid border-y border-[var(--ed-line)] bg-[#f7f5ef]"><div className="mx-auto grid max-w-[1440px] items-center gap-8 px-5 py-14 md:grid-cols-[.8fr_1.2fr] md:py-20"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Le terrain, en chiffres</p><h2 className="ed-display mt-3 text-5xl font-bold leading-none text-[var(--ed-ink)]">Pas un catalogue.<br />Un équipement.</h2></div><div className="grid grid-cols-2 gap-3 md:grid-cols-4">{[['1 200+', 'références actives'], ['8', 'marques choisies'], ['58', 'wilayas couvertes'], ['24 h', 'pour préparer votre colis']].map(([number, label]) => <div key={label} className="border-l-2 border-[var(--ed-yellow)] pl-4"><p className="ed-display text-4xl font-bold text-[var(--ed-ink)]">{number}</p><p className="mt-1 text-xs leading-5 text-slate-500">{label}</p></div>)}</div></div></section>
+    {cartFlash && <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 bg-[var(--ed-ink)] px-4 py-3 text-sm font-semibold text-white shadow-xl"><Check size={16} className="text-[var(--ed-yellow)]" /> Ajouté : {cartFlash.brand} {cartFlash.name.split(' ').slice(0, 3).join(' ')} </div>}
+  </div>;
+}
+
+function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
+  const [category, setCategory] = useState<string>();
+  const [brand, setBrand] = useState<string>();
+  const [sort, setSort] = useState('featured');
+  const { favorites, addToCart, toggleFavorite } = useStore();
+  const [mobileFilters, setMobileFilters] = useState(false);
+  const filtered = useMemo(() => {
+    const list = products.filter((product) => (!category || product.category === category) && (!brand || product.brand === brand) && (mode !== 'promotions' || product.oldPrice));
+    return [...list].sort((a, b) => sort === 'price-low' ? a.price - b.price : sort === 'price-high' ? b.price - a.price : b.rating - a.rating);
+  }, [category, brand, sort, mode]);
+  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: mode === 'promotions' ? 'Promotions' : 'Boutique' }]} /><div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-7 md:flex-row md:items-end"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">{mode === 'promotions' ? 'Prix atelier' : 'Catalogue EDENGROUPES'}</p><h1 className="ed-display mt-2 text-6xl font-bold leading-none text-[var(--ed-ink)]">{mode === 'promotions' ? 'Les promotions.' : 'Tout pour travailler.'}</h1><p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{mode === 'promotions' ? 'Les offres courtes sur les références qui font vraiment la différence au quotidien.' : 'Outillage, atelier, mesure, électricité, sécurité et plus. Filtrez par univers ou cherchez une marque.'}</p></div><div className="flex gap-2"><button onClick={() => setMobileFilters(!mobileFilters)} className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm font-semibold lg:hidden" data-testid="button-mobile-filters"><SlidersHorizontal size={15} /> Filtres</button><label className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm"><ArrowDownUp size={14} className="text-slate-400" /><select value={sort} onChange={(event) => setSort(event.target.value)} className="bg-transparent outline-none" data-testid="select-sort"><option value="featured">Pertinence</option><option value="price-low">Prix croissant</option><option value="price-high">Prix décroissant</option></select></label></div></div><div className={`mt-8 ${mobileFilters ? 'block' : 'hidden'} border border-[var(--ed-line)] bg-white p-4 lg:hidden`}><p className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par catégorie</p><div className="mt-3 flex flex-wrap gap-2">{categories.map((cat) => <button key={cat.slug} onClick={() => setCategory(category === cat.slug ? undefined : cat.slug)} className={`px-3 py-2 text-xs font-semibold ${category === cat.slug ? 'bg-[var(--ed-rust)] text-white' : 'bg-slate-100 text-slate-600'}`} data-testid={`button-mobile-category-${cat.slug}`}>{cat.label}</button>)}</div><p className="ed-mono mt-5 text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par marque</p><div className="mt-3 flex flex-wrap gap-2">{brands.map((item) => <button key={item} onClick={() => setBrand(brand === item ? undefined : item)} className={`px-3 py-2 text-xs font-semibold ${brand === item ? 'bg-[var(--ed-ink)] text-white' : 'bg-slate-100 text-slate-600'}`} data-testid={`button-mobile-brand-${item}`}>{item}</button>)}</div></div><div className="mt-8 flex gap-10"><FilterRail activeCategory={category} onCategory={setCategory} activeBrand={brand} onBrand={setBrand} /><div className="min-w-0 flex-1"><div className="mb-5 flex items-center justify-between"><span className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">{filtered.length} références affichées</span>{(category || brand) && <button onClick={() => { setCategory(undefined); setBrand(undefined); }} className="text-xs font-semibold text-[var(--ed-rust)] underline" data-testid="button-clear-filters">Effacer les filtres</button>}</div><ProductGrid items={filtered} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div></div>;
+}
+
+function CategoryPage() {
+  const { category: slug } = useParams<{ category: string }>();
+  const category = findCategory(slug);
+  const { favorites, addToCart, toggleFavorite } = useStore();
+  const items = products.filter((product) => product.category === slug);
+  if (!category) return <NotFound />;
+  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Boutique', href: '/shop' }, { label: category.label }]} /><div className="relative overflow-hidden bg-[var(--ed-ink)] px-6 py-12 text-white md:px-12 md:py-16"><div className="absolute -right-16 -top-20 h-72 w-72 rounded-full border-[48px] border-white/10" /><div className="relative max-w-2xl"><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">{category.count}</p><h1 className="ed-display mt-3 text-6xl font-bold leading-none md:text-7xl">{category.label}</h1><p className="mt-5 max-w-lg text-sm leading-6 text-white/65">{category.sub}. Des solutions choisies pour les exigences du chantier, de l’atelier et de la maintenance.</p></div></div><div className="mt-10"><SectionHeading eyebrow="La sélection EdenGroupes" title="Prêt à partir." action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)]" data-testid="link-category-all">Voir tout <ArrowRight size={16} /></Link>} /><ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div>;
+}
+
+function BrandPage() {
+  const { brand: brandParam } = useParams<{ brand: string }>();
+  const brand = findBrand(brandParam);
+  const { favorites, addToCart, toggleFavorite } = useStore();
+  const items = products.filter((product) => product.brand.toLowerCase() === brandParam?.toLowerCase());
+  if (!brand) return <NotFound />;
+  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Marques', href: '/brands' }, { label: brand }]} /><div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-8 md:flex-row md:items-end"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Marque disponible en Algérie</p><h1 className="ed-display mt-2 text-8xl font-extrabold leading-[.8] text-[var(--ed-ink)]">{brand}</h1><p className="mt-5 max-w-lg text-sm leading-6 text-slate-500">Une sélection EDENGROUPES pour équiper l’atelier avec des références fiables, lisibles et au bon prix.</p></div><Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)]" data-testid="link-brand-back-shop">Retour au catalogue <ArrowRight size={16} /></Link></div><div className="mt-10"><ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div>;
+}
+
+function ProfessionPage() {
+  const { profession: slug } = useParams<{ profession: string }>();
+  const profession = findProfession(slug);
+  const { favorites, addToCart, toggleFavorite } = useStore();
+  const items = products.filter((product) => product.profession === slug);
+  if (!profession) return <NotFound />;
+  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Par métier', href: '/professions' }, { label: profession.label }]} /><div className="grid gap-8 bg-[var(--ed-yellow)] p-7 md:grid-cols-[1fr_.7fr] md:p-12"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-ink)]/60">Votre sélection métier</p><h1 className="ed-display mt-3 text-7xl font-bold leading-[.82] text-[var(--ed-ink)]">{profession.label}</h1><p className="mt-6 max-w-lg text-sm leading-6 text-[var(--ed-ink)]/70">Les outils qui restent à portée de main quand le chantier, l’installation ou la réparation ne peut pas attendre.</p></div><div className="flex items-end justify-end"><div className="border-l-2 border-[var(--ed-ink)]/25 pl-5"><p className="ed-display text-5xl font-bold text-[var(--ed-ink)]">{profession.count.split(' ')[0]}</p><p className="mt-1 text-sm text-[var(--ed-ink)]/60">références à découvrir</p></div></div></div><div className="mt-10"><ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div>;
+}
+
+function ProductPage() {
+  const { addToCart, toggleFavorite, favorites } = useStore();
+  const { slug } = useParams<{ slug: string }>();
+  const product = findProduct(slug);
+  const [quantity, setQuantity] = useState(1);
+  if (!product) return <NotFound />;
+  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Boutique', href: '/shop' }, { label: product.categoryLabel, href: `/category/${product.category}` }, { label: product.name }]} /><div className="grid gap-8 md:grid-cols-[1.05fr_.95fr]"><div className="border border-[var(--ed-line)] bg-white"><ProductVisual product={product} large /></div><div className="pt-2"><div className="flex items-center justify-between"><span className="ed-mono text-[11px] font-semibold uppercase tracking-[.18em] text-[var(--ed-rust)]">{product.brand} · {product.categoryLabel}</span><button onClick={() => toggleFavorite(product)} className="grid h-10 w-10 place-items-center rounded-full border border-[var(--ed-line)] hover:border-[var(--ed-rust)] hover:text-[var(--ed-rust)]" data-testid={`button-detail-favorite-${product.id}`}><Heart size={18} fill={favorites.includes(product.id) ? 'currentColor' : 'none'} /></button></div><h1 className="ed-display mt-4 text-5xl font-bold leading-[.95] text-[var(--ed-ink)] md:text-6xl">{product.name}</h1><div className="mt-5 flex items-center gap-3 text-sm"><span className="text-[var(--ed-yellow)]">★★★★★</span><span className="font-semibold text-[var(--ed-ink)]">{product.rating}</span><span className="text-slate-400">({product.reviews} avis)</span></div><p className="mt-6 text-base leading-7 text-slate-600">{product.summary}</p><div className="mt-7 border-y border-[var(--ed-line)] py-5"><div className="flex items-end gap-3"><span className="ed-display text-5xl font-bold text-[var(--ed-ink)]">{formatDzd(product.price)}</span>{product.oldPrice && <span className="mb-1 text-sm text-slate-400 line-through">{formatDzd(product.oldPrice)}</span>}</div><p className="mt-2 flex items-center gap-2 text-xs text-emerald-700"><PackageCheck size={14} /> {product.stock} · Expédition rapide</p></div><div className="mt-6 flex gap-3"><div className="flex h-12 items-center border border-[var(--ed-line)] bg-white"><button className="grid h-12 w-11 place-items-center" onClick={() => setQuantity(Math.max(1, quantity - 1))} data-testid="button-detail-minus"><Minus size={15} /></button><span className="ed-mono w-8 text-center text-sm">{quantity}</span><button className="grid h-12 w-11 place-items-center" onClick={() => setQuantity(quantity + 1)} data-testid="button-detail-plus"><Plus size={15} /></button></div><button onClick={() => { for (let index = 0; index < quantity; index += 1) addToCart(product); }} className="ed-button flex flex-1 items-center justify-center gap-2 bg-[var(--ed-yellow)] px-4 text-sm font-bold text-[var(--ed-ink)] hover:bg-[var(--ed-ink)] hover:text-white" data-testid="button-detail-add"><ShoppingCart size={18} /> Ajouter au panier</button></div><div className="mt-7 grid gap-3 sm:grid-cols-2"><div className="border border-[var(--ed-line)] bg-white p-4"><Truck size={18} className="text-[var(--ed-rust)]" /><p className="mt-3 text-sm font-bold">Livraison à domicile</p><p className="mt-1 text-xs leading-5 text-slate-500">Partout en Algérie, délai confirmé à la commande.</p></div><div className="border border-[var(--ed-line)] bg-white p-4"><Banknote size={18} className="text-[var(--ed-rust)]" /><p className="mt-3 text-sm font-bold">Paiement à la livraison</p><p className="mt-1 text-xs leading-5 text-slate-500">Vous payez au moment de recevoir votre colis.</p></div></div></div></div><div className="mt-16 grid gap-8 md:grid-cols-[.8fr_1.2fr]"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Fiche technique</p><h2 className="ed-display mt-2 text-4xl font-bold">Ce qu’il faut savoir.</h2></div><div className="border-t border-[var(--ed-line)]">{product.specs.map((spec, index) => <div key={spec} className="flex items-center justify-between border-b border-[var(--ed-line)] py-4 text-sm"><span className="text-slate-500">0{index + 1}</span><span className="font-semibold text-[var(--ed-ink)]">{spec}</span></div>)}</div></div></div>;
+}
+
+function SearchPage() {
+  const [location] = useLocation();
+  const query = new URLSearchParams(location.split('?')[1] ?? '').get('q') ?? '';
+  const { favorites, addToCart, toggleFavorite } = useStore();
+  const results = products.filter((product) => `${product.name} ${product.brand} ${product.categoryLabel}`.toLowerCase().includes(query.toLowerCase()));
+  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Recherche' }]} /><div className="border-b border-[var(--ed-line)] pb-8"><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Recherche catalogue</p><h1 className="ed-display mt-3 text-6xl font-bold leading-none">Résultats pour<br /><span className="text-[var(--ed-rust)]">“{query}”</span></h1></div><div className="mt-10"><ProductGrid items={results} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} emptyLabel="Aucun résultat pour cette recherche." /></div></div>;
+}
+
+function CollectionsPage({ type }: { type: 'brands' | 'professions' }) {
+  const isBrands = type === 'brands';
+  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: isBrands ? 'Marques' : 'Par métier' }]} /><div className="border-b border-[var(--ed-line)] pb-8"><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">{isBrands ? 'Des marques qui ont fait leurs preuves' : 'Un point de départ plus direct'}</p><h1 className="ed-display mt-3 text-7xl font-bold leading-[.85] text-[var(--ed-ink)]">{isBrands ? 'Nos marques.' : 'Par métier.'}</h1><p className="mt-5 max-w-xl text-sm leading-6 text-slate-500">{isBrands ? 'CROWN, INGCO, BEETRO, HONESTPRO et les autres : sélectionnées pour leur disponibilité, leur rapport qualité-prix et leur utilité terrain.' : 'Maçon, mécanicien, électricien, soudeur : partez de votre quotidien pour trouver les bons essentiels plus vite.'}</p></div>{isBrands ? <div className="mt-10 grid gap-3 md:grid-cols-2">{brands.map((brand, index) => <Link key={brand} href={`/brand/${brand}`} className="ed-card group flex min-h-[180px] items-end justify-between border border-[var(--ed-line)] bg-white p-6" data-testid={`link-brand-${brand}`}><div><span className="ed-mono text-[10px] text-slate-400">0{index + 1} / 08</span><h2 className="ed-display mt-5 text-6xl font-bold text-[var(--ed-ink)]">{brand}</h2><p className="mt-1 text-xs text-slate-500">Voir la sélection disponible</p></div><ArrowRight className="text-[var(--ed-rust)] transition-transform group-hover:translate-x-1" /></Link>)}</div> : <div className="mt-10 grid gap-3 md:grid-cols-3">{professions.map((profession) => <Link key={profession.slug} href={`/profession/${profession.slug}`} className="ed-card border border-[var(--ed-line)] bg-white p-6" data-testid={`link-profession-${profession.slug}`}><div className="grid h-12 w-12 place-items-center bg-[var(--ed-ink)] text-[var(--ed-yellow)]"><Grid2X2 size={22} /></div><h2 className="ed-display mt-12 text-4xl font-bold text-[var(--ed-ink)]">{profession.label}</h2><p className="mt-2 text-xs text-slate-500">{profession.count}</p><span className="mt-7 flex items-center gap-2 text-xs font-bold text-[var(--ed-rust)]">Voir la sélection <ArrowRight size={14} /></span></Link>)}</div>}</div>;
+}
+
+function CartPage() {
+  const { cart: lines, updateQuantity: onQuantity, removeLine: onRemove } = useStore();
+  const [submitted, setSubmitted] = useState(false);
+  const total = lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
+  if (submitted) return <div className="mx-auto max-w-3xl px-5 py-24 text-center"><div className="mx-auto grid h-16 w-16 place-items-center bg-emerald-100 text-emerald-700"><Check size={30} /></div><p className="ed-mono mt-7 text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Demande reçue</p><h1 className="ed-display mt-3 text-6xl font-bold">On vous rappelle.</h1><p className="mx-auto mt-5 max-w-md text-sm leading-6 text-slate-500">Notre équipe EDENGROUPES va confirmer votre commande et les frais de livraison par téléphone.</p><Link href="/shop" className="mt-8 inline-flex bg-[var(--ed-yellow)] px-5 py-4 text-sm font-bold" data-testid="link-order-continue">Continuer mes achats</Link></div>;
+  return <div className="mx-auto max-w-[1200px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Panier' }]} /><div className="grid gap-10 lg:grid-cols-[1fr_370px]"><div><div className="flex items-end justify-between border-b border-[var(--ed-line)] pb-6"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Votre commande</p><h1 className="ed-display mt-2 text-6xl font-bold">Panier.</h1></div><span className="text-sm text-slate-500">{lines.length} article{lines.length > 1 ? 's' : ''}</span></div>{!lines.length ? <div className="py-24 text-center"><ShoppingCart className="mx-auto text-slate-300" size={40} /><p className="mt-4 font-semibold">Votre panier est vide.</p><Link href="/shop" className="mt-6 inline-flex bg-[var(--ed-yellow)] px-5 py-3 text-sm font-bold" data-testid="link-empty-cart-shop">Voir la boutique</Link></div> : <div className="mt-5 divide-y divide-[var(--ed-line)] border-y border-[var(--ed-line)]">{lines.map((line) => <div key={line.product.id} className="flex gap-4 py-5"><div className="hidden h-28 w-28 shrink-0 sm:block"><ProductVisual product={line.product} /></div><div className="min-w-0 flex-1"><p className="ed-mono text-[10px] text-slate-400">{line.product.brand}</p><h2 className="mt-1 font-semibold leading-5">{line.product.name}</h2><p className="mt-2 text-sm font-bold">{formatDzd(line.product.price)}</p><div className="mt-4 flex items-center justify-between"><div className="flex items-center border border-[var(--ed-line)] bg-white"><button onClick={() => onQuantity(line.product.id, line.quantity - 1)} className="grid h-8 w-8 place-items-center" data-testid={`button-page-minus-${line.product.id}`}><Minus size={13} /></button><span className="ed-mono w-8 text-center text-xs">{line.quantity}</span><button onClick={() => onQuantity(line.product.id, line.quantity + 1)} className="grid h-8 w-8 place-items-center" data-testid={`button-page-plus-${line.product.id}`}><Plus size={13} /></button></div><button onClick={() => onRemove(line.product.id)} className="text-xs text-slate-400 underline hover:text-[var(--ed-rust)]" data-testid={`button-page-remove-${line.product.id}`}>Retirer</button></div></div><p className="hidden font-bold sm:block">{formatDzd(line.product.price * line.quantity)}</p></div>)}</div>}</div><aside className="h-fit border border-[var(--ed-line)] bg-white p-6 lg:sticky lg:top-24"><p className="ed-mono text-[10px] uppercase tracking-[.18em] text-[var(--ed-rust)]">Paiement à la livraison</p><h2 className="ed-display mt-2 text-4xl font-bold">Finaliser.</h2><div className="mt-7 space-y-3 border-b border-[var(--ed-line)] pb-5 text-sm"><div className="flex justify-between text-slate-500"><span>Sous-total</span><span>{formatDzd(total)}</span></div><div className="flex justify-between text-slate-500"><span>Livraison</span><span>À confirmer</span></div></div><div className="flex justify-between py-5 font-bold"><span>Total estimé</span><span className="ed-display text-3xl">{formatDzd(total)}</span></div><div className="space-y-3"><input className="w-full border border-[var(--ed-line)] bg-[#f8f7f3] px-3 py-3 text-sm outline-none focus:border-[var(--ed-ink)]" placeholder="Nom et prénom" data-testid="input-checkout-name" /><input className="w-full border border-[var(--ed-line)] bg-[#f8f7f3] px-3 py-3 text-sm outline-none focus:border-[var(--ed-ink)]" placeholder="Téléphone" data-testid="input-checkout-phone" /><select className="w-full border border-[var(--ed-line)] bg-[#f8f7f3] px-3 py-3 text-sm outline-none" data-testid="select-checkout-wilaya"><option>Choisir votre wilaya</option><option>Alger</option><option>Oran</option><option>Blida</option><option>Constantine</option><option>Sétif</option></select></div><button disabled={!lines.length} onClick={() => setSubmitted(true)} className="ed-button mt-5 flex w-full items-center justify-center gap-2 bg-[var(--ed-yellow)] px-4 py-4 text-sm font-bold text-[var(--ed-ink)] hover:bg-[var(--ed-ink)] hover:text-white disabled:cursor-not-allowed disabled:opacity-40" data-testid="button-submit-order">Confirmer ma demande <ArrowRight size={16} /></button><p className="mt-4 flex gap-2 text-[11px] leading-5 text-slate-500"><CircleHelp size={14} className="mt-0.5 shrink-0" /> Un conseiller vous rappelle pour confirmer l’adresse et le montant de livraison.</p></aside></div></div>;
+}
+
+function Router() {
+  return <Shell><Switch><Route path="/" component={Home} /><Route path="/shop"><CatalogPage mode="shop" /></Route><Route path="/promotions"><CatalogPage mode="promotions" /></Route><Route path="/category/:category" component={CategoryPage} /><Route path="/brand/:brand" component={BrandPage} /><Route path="/profession/:profession" component={ProfessionPage} /><Route path="/product/:slug" component={ProductPage} /><Route path="/search" component={SearchPage} /><Route path="/cart" component={CartPage} /><Route path="/brands"><CollectionsPage type="brands" /></Route><Route path="/professions"><CollectionsPage type="professions" /></Route><Route component={NotFound} /></Switch></Shell>;
+}
+
+function RoutedErrorBoundary({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
+}
+
+function App() {
+  return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><RoutedErrorBoundary><Router /></RoutedErrorBoundary></WouterRouter><Toaster /></TooltipProvider></QueryClientProvider>;
+}
+
+export default App;

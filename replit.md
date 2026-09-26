@@ -1,6 +1,6 @@
-# [Project name]
+# EDENGROUPES Storefront
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A frontend-first Algerian e-commerce storefront for professional tools, workshop equipment, and practical products.
 
 ## Run & Operate
 
@@ -22,23 +22,28 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/edengroupes-storefront/` — the React + Vite storefront artifact
+- `artifacts/edengroupes-storefront/src/App.tsx` — storefront routes and UI entry point
+- `artifacts/edengroupes-storefront/src/index.css` — storefront theme and global styles
+- `attached_assets/generated_images/` — generated visual assets used by the storefront when present
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The first release is frontend-only with realistic mock catalog data; there is no order, payment, auth, or inventory backend yet.
+- Catalog discovery is organized around both product taxonomy and profession-based buying paths.
+- French is the primary presentation language while the UI structure leaves room for a later Arabic RTL direction switch.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+EDENGROUPES helps Algerian tradespeople, workshop owners, merchants, and practical buyers discover professional tools and equipment by search, category, profession, and brand. The storefront supports product browsing, product detail views, favorites, cart interactions, and a cash-on-delivery purchase handoff.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+The user wants a premium, modern, highly professional storefront that remains recognizably EDENGROUPES and avoids fashion, luxury-boutique, generic marketplace, and dropshipping aesthetics.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+The storefront is a frontend prototype: any order or checkout action should communicate the cash-on-delivery flow without implying that a real order was submitted.
 
 ## Pointers
 
