@@ -61,7 +61,7 @@ import {
   type Product,
 } from '@/data/store';
 import NotFound from '@/pages/not-found';
-import heroWorkshop from '../attached_assets/generated_images/edengroupes-workshop-hero.jpg';
+import heroWorkshop from '@/assets/edengroupes-workshop-hero.jpg';
 
 const queryClient = new QueryClient();
 

@@ -11,7 +11,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { formatDzd } from '@/data/store';
-import wilayasData from '../../../../data/wilayas.json';
+import wilayasData from '../../data/wilayas.json';
 
 export type Wilaya = {
   id: number;
