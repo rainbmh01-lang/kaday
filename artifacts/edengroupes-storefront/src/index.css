@@ -141,8 +141,8 @@
   --chart-4: 154 44% 38%;
   --chart-5: 29 85% 58%;
 
-  --app-font-sans: 'DM Sans', sans-serif;
-  --app-font-serif: 'Barlow Condensed', sans-serif;
+  --app-font-sans: 'Cairo', 'DM Sans', sans-serif;
+  --app-font-serif: 'Cairo', 'Barlow Condensed', sans-serif;
   --app-font-mono: 'IBM Plex Mono', monospace;
   --radius: 0.35rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0); /*replace with H S L */

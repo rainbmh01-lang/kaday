@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
 import {
@@ -47,6 +47,7 @@ import {
   TrustStrip,
   type CartLine,
 } from '@/components/storefront';
+import { LeadForm } from '@/components/lead-form';
 import {
   brands,
   categories,
@@ -86,7 +87,11 @@ function Shell({ children }: { children: React.ReactNode }) {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location]);
 
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const addToCart = (product: Product) => {
@@ -110,7 +115,6 @@ function Shell({ children }: { children: React.ReactNode }) {
     <Footer />
     <CartDrawer open={drawerOpen} lines={cart} onClose={() => setDrawerOpen(false)} onQuantity={updateQuantity} onRemove={removeLine} />
     <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} onSubmit={onSearch} />
-    <button onClick={() => setDrawerOpen(true)} className="fixed bottom-4 right-4 z-30 flex items-center gap-2 bg-[var(--ed-ink)] px-4 py-3 text-sm font-bold text-white shadow-lg md:hidden" data-testid="button-mobile-cart"><ShoppingCart size={17} /> Panier <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--ed-yellow)] px-1 text-xs text-[var(--ed-ink)]">{cartCount}</span></button>
   </div></StoreContext.Provider>;
 }
 
@@ -158,7 +162,7 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
     const list = products.filter((product) => (!category || product.category === category) && (!brand || product.brand === brand) && (mode !== 'promotions' || product.oldPrice));
     return [...list].sort((a, b) => sort === 'price-low' ? a.price - b.price : sort === 'price-high' ? b.price - a.price : b.rating - a.rating);
   }, [category, brand, sort, mode]);
-  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: mode === 'promotions' ? 'Promotions' : 'Boutique' }]} /><div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-7 md:flex-row md:items-end"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">{mode === 'promotions' ? 'Prix atelier' : 'Catalogue EDENGROUPES'}</p><h1 className="ed-display mt-2 text-6xl font-bold leading-none text-[var(--ed-ink)]">{mode === 'promotions' ? 'Les promotions.' : 'Tout pour travailler.'}</h1><p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{mode === 'promotions' ? 'Les offres courtes sur les références qui font vraiment la différence au quotidien.' : 'Outillage, atelier, mesure, électricité, sécurité et plus. Filtrez par univers ou cherchez une marque.'}</p></div><div className="flex gap-2"><button onClick={() => setMobileFilters(!mobileFilters)} className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm font-semibold lg:hidden" data-testid="button-mobile-filters"><SlidersHorizontal size={15} /> Filtres</button><label className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm"><ArrowDownUp size={14} className="text-slate-400" /><select value={sort} onChange={(event) => setSort(event.target.value)} className="bg-transparent outline-none" data-testid="select-sort"><option value="featured">Pertinence</option><option value="price-low">Prix croissant</option><option value="price-high">Prix décroissant</option></select></label></div></div><div className={`mt-8 ${mobileFilters ? 'block' : 'hidden'} border border-[var(--ed-line)] bg-white p-4 lg:hidden`}><p className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par catégorie</p><div className="mt-3 flex flex-wrap gap-2">{categories.map((cat) => <button key={cat.slug} onClick={() => setCategory(category === cat.slug ? undefined : cat.slug)} className={`px-3 py-2 text-xs font-semibold ${category === cat.slug ? 'bg-[var(--ed-rust)] text-white' : 'bg-slate-100 text-slate-600'}`} data-testid={`button-mobile-category-${cat.slug}`}>{cat.label}</button>)}</div><p className="ed-mono mt-5 text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par marque</p><div className="mt-3 flex flex-wrap gap-2">{brands.map((item) => <button key={item} onClick={() => setBrand(brand === item ? undefined : item)} className={`px-3 py-2 text-xs font-semibold ${brand === item ? 'bg-[var(--ed-ink)] text-white' : 'bg-slate-100 text-slate-600'}`} data-testid={`button-mobile-brand-${item}`}>{item}</button>)}</div></div><div className="mt-8 flex gap-10"><FilterRail activeCategory={category} onCategory={setCategory} activeBrand={brand} onBrand={setBrand} /><div className="min-w-0 flex-1"><div className="mb-5 flex items-center justify-between"><span className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">{filtered.length} références affichées</span>{(category || brand) && <button onClick={() => { setCategory(undefined); setBrand(undefined); }} className="text-xs font-semibold text-[var(--ed-rust)] underline" data-testid="button-clear-filters">Effacer les filtres</button>}</div><ProductGrid items={filtered} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div></div>;
+  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: mode === 'promotions' ? 'Promotions' : 'Boutique' }]} /><div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-7 md:flex-row md:items-end"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">{mode === 'promotions' ? 'Prix atelier' : 'Catalogue KADYA DZ'}</p><h1 className="ed-display mt-2 text-6xl font-bold leading-none text-[var(--ed-ink)]">{mode === 'promotions' ? 'Les promotions.' : 'Tout pour travailler.'}</h1><p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{mode === 'promotions' ? 'Les offres courtes sur les références qui font vraiment la différence au quotidien.' : 'Outillage, atelier, mesure, électricité, sécurité et plus. Filtrez par univers ou cherchez une marque.'}</p></div><div className="flex gap-2"><button onClick={() => setMobileFilters(!mobileFilters)} className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm font-semibold lg:hidden" data-testid="button-mobile-filters"><SlidersHorizontal size={15} /> Filtres</button><label className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm"><ArrowDownUp size={14} className="text-slate-400" /><select value={sort} onChange={(event) => setSort(event.target.value)} className="bg-transparent outline-none" data-testid="select-sort"><option value="featured">Pertinence</option><option value="price-low">Prix croissant</option><option value="price-high">Prix décroissant</option></select></label></div></div><div className={`mt-8 ${mobileFilters ? 'block' : 'hidden'} border border-[var(--ed-line)] bg-white p-4 lg:hidden`}><p className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par catégorie</p><div className="mt-3 flex flex-wrap gap-2">{categories.map((cat) => <button key={cat.slug} onClick={() => setCategory(category === cat.slug ? undefined : cat.slug)} className={`px-3 py-2 text-xs font-semibold ${category === cat.slug ? 'bg-[var(--ed-rust)] text-white' : 'bg-slate-100 text-slate-600'}`} data-testid={`button-mobile-category-${cat.slug}`}>{cat.label}</button>)}</div><p className="ed-mono mt-5 text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par marque</p><div className="mt-3 flex flex-wrap gap-2">{brands.map((item) => <button key={item} onClick={() => setBrand(brand === item ? undefined : item)} className={`px-3 py-2 text-xs font-semibold ${brand === item ? 'bg-[var(--ed-ink)] text-white' : 'bg-slate-100 text-slate-600'}`} data-testid={`button-mobile-brand-${item}`}>{item}</button>)}</div></div><div className="mt-8 flex gap-10"><FilterRail activeCategory={category} onCategory={setCategory} activeBrand={brand} onBrand={setBrand} /><div className="min-w-0 flex-1"><div className="mb-5 flex items-center justify-between"><span className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">{filtered.length} références affichées</span>{(category || brand) && <button onClick={() => { setCategory(undefined); setBrand(undefined); }} className="text-xs font-semibold text-[var(--ed-rust)] underline" data-testid="button-clear-filters">Effacer les filtres</button>}</div><ProductGrid items={filtered} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div></div>;
 }
 
 function CategoryPage() {
@@ -167,7 +171,7 @@ function CategoryPage() {
   const { favorites, addToCart, toggleFavorite } = useStore();
   const items = products.filter((product) => product.category === slug);
   if (!category) return <NotFound />;
-  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Boutique', href: '/shop' }, { label: category.label }]} /><div className="relative overflow-hidden bg-[var(--ed-ink)] px-6 py-12 text-white md:px-12 md:py-16"><div className="absolute -right-16 -top-20 h-72 w-72 rounded-full border-[48px] border-white/10" /><div className="relative max-w-2xl"><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">{category.count}</p><h1 className="ed-display mt-3 text-6xl font-bold leading-none md:text-7xl">{category.label}</h1><p className="mt-5 max-w-lg text-sm leading-6 text-white/65">{category.sub}. Des solutions choisies pour les exigences du chantier, de l’atelier et de la maintenance.</p></div></div><div className="mt-10"><SectionHeading eyebrow="La sélection EdenGroupes" title="Prêt à partir." action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)]" data-testid="link-category-all">Voir tout <ArrowRight size={16} /></Link>} /><ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div>;
+  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Boutique', href: '/shop' }, { label: category.label }]} /><div className="relative overflow-hidden bg-[var(--ed-ink)] px-6 py-12 text-white md:px-12 md:py-16"><div className="absolute -right-16 -top-20 h-72 w-72 rounded-full border-[48px] border-white/10" /><div className="relative max-w-2xl"><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">{category.count}</p><h1 className="ed-display mt-3 text-6xl font-bold leading-none md:text-7xl">{category.label}</h1><p className="mt-5 max-w-lg text-sm leading-6 text-white/65">{category.sub}. Des solutions choisies pour les exigences du chantier, de l’atelier et de la maintenance.</p></div></div><div className="mt-10"><SectionHeading eyebrow="La sélection KADYA DZ" title="Prêt à partir." action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)]" data-testid="link-category-all">Voir tout <ArrowRight size={16} /></Link>} /><ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div>;
 }
 
 function BrandPage() {
@@ -176,7 +180,7 @@ function BrandPage() {
   const { favorites, addToCart, toggleFavorite } = useStore();
   const items = products.filter((product) => product.brand.toLowerCase() === brandParam?.toLowerCase());
   if (!brand) return <NotFound />;
-  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Marques', href: '/brands' }, { label: brand }]} /><div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-8 md:flex-row md:items-end"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Marque disponible en Algérie</p><h1 className="ed-display mt-2 text-8xl font-extrabold leading-[.8] text-[var(--ed-ink)]">{brand}</h1><p className="mt-5 max-w-lg text-sm leading-6 text-slate-500">Une sélection EDENGROUPES pour équiper l’atelier avec des références fiables, lisibles et au bon prix.</p></div><Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)]" data-testid="link-brand-back-shop">Retour au catalogue <ArrowRight size={16} /></Link></div><div className="mt-10"><ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div>;
+  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Marques', href: '/brands' }, { label: brand }]} /><div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-8 md:flex-row md:items-end"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Marque disponible en Algérie</p><h1 className="ed-display mt-2 text-8xl font-extrabold leading-[.8] text-[var(--ed-ink)]">{brand}</h1><p className="mt-5 max-w-lg text-sm leading-6 text-slate-500">Une sélection KADYA DZ pour équiper l’atelier avec des références fiables, lisibles et au bon prix.</p></div><Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)]" data-testid="link-brand-back-shop">Retour au catalogue <ArrowRight size={16} /></Link></div><div className="mt-10"><ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div>;
 }
 
 function ProfessionPage() {
@@ -194,7 +198,64 @@ function ProductPage() {
   const product = findProduct(slug);
   const [quantity, setQuantity] = useState(1);
   if (!product) return <NotFound />;
-  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Boutique', href: '/shop' }, { label: product.categoryLabel, href: `/category/${product.category}` }, { label: product.name }]} /><div className="grid gap-8 md:grid-cols-[1.05fr_.95fr]"><div className="border border-[var(--ed-line)] bg-white"><ProductVisual product={product} large /></div><div className="pt-2"><div className="flex items-center justify-between"><span className="ed-mono text-[11px] font-semibold uppercase tracking-[.18em] text-[var(--ed-rust)]">{product.brand} · {product.categoryLabel}</span><button onClick={() => toggleFavorite(product)} className="grid h-10 w-10 place-items-center rounded-full border border-[var(--ed-line)] hover:border-[var(--ed-rust)] hover:text-[var(--ed-rust)]" data-testid={`button-detail-favorite-${product.id}`}><Heart size={18} fill={favorites.includes(product.id) ? 'currentColor' : 'none'} /></button></div><h1 className="ed-display mt-4 text-5xl font-bold leading-[.95] text-[var(--ed-ink)] md:text-6xl">{product.name}</h1><div className="mt-5 flex items-center gap-3 text-sm"><span className="text-[var(--ed-yellow)]">★★★★★</span><span className="font-semibold text-[var(--ed-ink)]">{product.rating}</span><span className="text-slate-400">({product.reviews} avis)</span></div><p className="mt-6 text-base leading-7 text-slate-600">{product.summary}</p><div className="mt-7 border-y border-[var(--ed-line)] py-5"><div className="flex items-end gap-3"><span className="ed-display text-5xl font-bold text-[var(--ed-ink)]">{formatDzd(product.price)}</span>{product.oldPrice && <span className="mb-1 text-sm text-slate-400 line-through">{formatDzd(product.oldPrice)}</span>}</div><p className="mt-2 flex items-center gap-2 text-xs text-emerald-700"><PackageCheck size={14} /> {product.stock} · Expédition rapide</p></div><div className="mt-6 flex gap-3"><div className="flex h-12 items-center border border-[var(--ed-line)] bg-white"><button className="grid h-12 w-11 place-items-center" onClick={() => setQuantity(Math.max(1, quantity - 1))} data-testid="button-detail-minus"><Minus size={15} /></button><span className="ed-mono w-8 text-center text-sm">{quantity}</span><button className="grid h-12 w-11 place-items-center" onClick={() => setQuantity(quantity + 1)} data-testid="button-detail-plus"><Plus size={15} /></button></div><button onClick={() => { for (let index = 0; index < quantity; index += 1) addToCart(product); }} className="ed-button flex flex-1 items-center justify-center gap-2 bg-[var(--ed-yellow)] px-4 text-sm font-bold text-[var(--ed-ink)] hover:bg-[var(--ed-ink)] hover:text-white" data-testid="button-detail-add"><ShoppingCart size={18} /> Ajouter au panier</button></div><div className="mt-7 grid gap-3 sm:grid-cols-2"><div className="border border-[var(--ed-line)] bg-white p-4"><Truck size={18} className="text-[var(--ed-rust)]" /><p className="mt-3 text-sm font-bold">Livraison à domicile</p><p className="mt-1 text-xs leading-5 text-slate-500">Partout en Algérie, délai confirmé à la commande.</p></div><div className="border border-[var(--ed-line)] bg-white p-4"><Banknote size={18} className="text-[var(--ed-rust)]" /><p className="mt-3 text-sm font-bold">Paiement à la livraison</p><p className="mt-1 text-xs leading-5 text-slate-500">Vous payez au moment de recevoir votre colis.</p></div></div></div></div><div className="mt-16 grid gap-8 md:grid-cols-[.8fr_1.2fr]"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Fiche technique</p><h2 className="ed-display mt-2 text-4xl font-bold">Ce qu’il faut savoir.</h2></div><div className="border-t border-[var(--ed-line)]">{product.specs.map((spec, index) => <div key={spec} className="flex items-center justify-between border-b border-[var(--ed-line)] py-4 text-sm"><span className="text-slate-500">0{index + 1}</span><span className="font-semibold text-[var(--ed-ink)]">{spec}</span></div>)}</div></div></div>;
+  return (
+    <div className="mx-auto max-w-[1440px] px-5 py-5 md:py-10">
+      <div className="grid gap-8 lg:grid-cols-[1.05fr_.95fr]">
+        <div>
+          <div className="border border-[var(--ed-line)] bg-white">
+            <ProductVisual product={product} large />
+          </div>
+          <div className="mt-8 hidden lg:block">
+            <div className="border border-[var(--ed-line)] bg-white p-6">
+              <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Fiche technique</p>
+              <h2 className="ed-display mt-2 text-3xl font-bold">Ce qu’il faut savoir.</h2>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{product.summary}</p>
+              <div className="mt-6 border-t border-[var(--ed-line)]">
+                {product.specs.map((spec, index) => (
+                  <div key={spec} className="flex items-center justify-between border-b border-[var(--ed-line)] py-3.5 text-sm">
+                    <span className="text-slate-500">0{index + 1}</span>
+                    <span className="font-semibold text-[var(--ed-ink)]">{spec}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-2">
+          <h1 className="ed-display text-4xl font-bold leading-[1.05] text-[var(--ed-ink)] md:text-5xl">{product.name}</h1>
+          <div className="mt-5 border-y border-[var(--ed-line)] py-4">
+            <div className="flex items-end gap-3">
+              <span className="ed-display text-4xl font-bold text-[var(--ed-ink)]">{formatDzd(product.price)}</span>
+              {product.oldPrice && <span className="mb-1 text-sm text-slate-400 line-through">{formatDzd(product.oldPrice)}</span>}
+            </div>
+            <p className="mt-2 flex items-center gap-2 text-xs text-emerald-700">
+              <PackageCheck size={14} /> {product.stock} · Expédition rapide sous 24h
+            </p>
+          </div>
+
+          {/* New Lead Form embedded in Product Page */}
+          <div className="mt-6">
+            <LeadForm productName={product.name} unitPrice={product.price} initialQuantity={1} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-12 lg:hidden">
+        <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Fiche technique</p>
+        <h2 className="ed-display mt-2 text-3xl font-bold">Ce qu’il faut savoir.</h2>
+        <p className="mt-3 text-sm leading-6 text-slate-600">{product.summary}</p>
+        <div className="mt-6 border-t border-[var(--ed-line)]">
+          {product.specs.map((spec, index) => (
+            <div key={spec} className="flex items-center justify-between border-b border-[var(--ed-line)] py-3 text-sm">
+              <span className="text-slate-500">0{index + 1}</span>
+              <span className="font-semibold text-[var(--ed-ink)]">{spec}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function SearchPage() {
@@ -212,10 +273,78 @@ function CollectionsPage({ type }: { type: 'brands' | 'professions' }) {
 
 function CartPage() {
   const { cart: lines, updateQuantity: onQuantity, removeLine: onRemove } = useStore();
-  const [submitted, setSubmitted] = useState(false);
   const total = lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
-  if (submitted) return <div className="mx-auto max-w-3xl px-5 py-24 text-center"><div className="mx-auto grid h-16 w-16 place-items-center bg-emerald-100 text-emerald-700"><Check size={30} /></div><p className="ed-mono mt-7 text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Demande reçue</p><h1 className="ed-display mt-3 text-6xl font-bold">On vous rappelle.</h1><p className="mx-auto mt-5 max-w-md text-sm leading-6 text-slate-500">Notre équipe EDENGROUPES va confirmer votre commande et les frais de livraison par téléphone.</p><Link href="/shop" className="mt-8 inline-flex bg-[var(--ed-yellow)] px-5 py-4 text-sm font-bold" data-testid="link-order-continue">Continuer mes achats</Link></div>;
-  return <div className="mx-auto max-w-[1200px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Panier' }]} /><div className="grid gap-10 lg:grid-cols-[1fr_370px]"><div><div className="flex items-end justify-between border-b border-[var(--ed-line)] pb-6"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Votre commande</p><h1 className="ed-display mt-2 text-6xl font-bold">Panier.</h1></div><span className="text-sm text-slate-500">{lines.length} article{lines.length > 1 ? 's' : ''}</span></div>{!lines.length ? <div className="py-24 text-center"><ShoppingCart className="mx-auto text-slate-300" size={40} /><p className="mt-4 font-semibold">Votre panier est vide.</p><Link href="/shop" className="mt-6 inline-flex bg-[var(--ed-yellow)] px-5 py-3 text-sm font-bold" data-testid="link-empty-cart-shop">Voir la boutique</Link></div> : <div className="mt-5 divide-y divide-[var(--ed-line)] border-y border-[var(--ed-line)]">{lines.map((line) => <div key={line.product.id} className="flex gap-4 py-5"><div className="hidden h-28 w-28 shrink-0 sm:block"><ProductVisual product={line.product} /></div><div className="min-w-0 flex-1"><p className="ed-mono text-[10px] text-slate-400">{line.product.brand}</p><h2 className="mt-1 font-semibold leading-5">{line.product.name}</h2><p className="mt-2 text-sm font-bold">{formatDzd(line.product.price)}</p><div className="mt-4 flex items-center justify-between"><div className="flex items-center border border-[var(--ed-line)] bg-white"><button onClick={() => onQuantity(line.product.id, line.quantity - 1)} className="grid h-8 w-8 place-items-center" data-testid={`button-page-minus-${line.product.id}`}><Minus size={13} /></button><span className="ed-mono w-8 text-center text-xs">{line.quantity}</span><button onClick={() => onQuantity(line.product.id, line.quantity + 1)} className="grid h-8 w-8 place-items-center" data-testid={`button-page-plus-${line.product.id}`}><Plus size={13} /></button></div><button onClick={() => onRemove(line.product.id)} className="text-xs text-slate-400 underline hover:text-[var(--ed-rust)]" data-testid={`button-page-remove-${line.product.id}`}>Retirer</button></div></div><p className="hidden font-bold sm:block">{formatDzd(line.product.price * line.quantity)}</p></div>)}</div>}</div><aside className="h-fit border border-[var(--ed-line)] bg-white p-6 lg:sticky lg:top-24"><p className="ed-mono text-[10px] uppercase tracking-[.18em] text-[var(--ed-rust)]">Paiement à la livraison</p><h2 className="ed-display mt-2 text-4xl font-bold">Finaliser.</h2><div className="mt-7 space-y-3 border-b border-[var(--ed-line)] pb-5 text-sm"><div className="flex justify-between text-slate-500"><span>Sous-total</span><span>{formatDzd(total)}</span></div><div className="flex justify-between text-slate-500"><span>Livraison</span><span>À confirmer</span></div></div><div className="flex justify-between py-5 font-bold"><span>Total estimé</span><span className="ed-display text-3xl">{formatDzd(total)}</span></div><div className="space-y-3"><input className="w-full border border-[var(--ed-line)] bg-[#f8f7f3] px-3 py-3 text-sm outline-none focus:border-[var(--ed-ink)]" placeholder="Nom et prénom" data-testid="input-checkout-name" /><input className="w-full border border-[var(--ed-line)] bg-[#f8f7f3] px-3 py-3 text-sm outline-none focus:border-[var(--ed-ink)]" placeholder="Téléphone" data-testid="input-checkout-phone" /><select className="w-full border border-[var(--ed-line)] bg-[#f8f7f3] px-3 py-3 text-sm outline-none" data-testid="select-checkout-wilaya"><option>Choisir votre wilaya</option><option>Alger</option><option>Oran</option><option>Blida</option><option>Constantine</option><option>Sétif</option></select></div><button disabled={!lines.length} onClick={() => setSubmitted(true)} className="ed-button mt-5 flex w-full items-center justify-center gap-2 bg-[var(--ed-yellow)] px-4 py-4 text-sm font-bold text-[var(--ed-ink)] hover:bg-[var(--ed-ink)] hover:text-white disabled:cursor-not-allowed disabled:opacity-40" data-testid="button-submit-order">Confirmer ma demande <ArrowRight size={16} /></button><p className="mt-4 flex gap-2 text-[11px] leading-5 text-slate-500"><CircleHelp size={14} className="mt-0.5 shrink-0" /> Un conseiller vous rappelle pour confirmer l’adresse et le montant de livraison.</p></aside></div></div>;
+
+  return (
+    <div className="mx-auto max-w-[1200px] px-5 py-8 md:py-12">
+      <Breadcrumbs items={[{ label: 'Panier' }]} />
+      <div className="grid gap-10 lg:grid-cols-[1fr_420px]">
+        <div>
+          <div className="flex items-end justify-between border-b border-[var(--ed-line)] pb-6">
+            <div>
+              <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Votre commande</p>
+              <h1 className="ed-display mt-2 text-5xl font-bold">Panier.</h1>
+            </div>
+            <span className="text-sm text-slate-500">{lines.length} article{lines.length > 1 ? 's' : ''}</span>
+          </div>
+          {!lines.length ? (
+            <div className="py-24 text-center">
+              <ShoppingCart className="mx-auto text-slate-300" size={40} />
+              <p className="mt-4 font-semibold">Votre panier est vide.</p>
+              <Link href="/shop" className="mt-6 inline-flex bg-[var(--ed-yellow)] px-5 py-3 text-sm font-bold" data-testid="link-empty-cart-shop">
+                Voir la boutique
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-5 divide-y divide-[var(--ed-line)] border-y border-[var(--ed-line)]">
+              {lines.map((line) => (
+                <div key={line.product.id} className="flex gap-4 py-5">
+                  <div className="hidden h-28 w-28 shrink-0 sm:block">
+                    <ProductVisual product={line.product} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="ed-mono text-[10px] text-slate-400">{line.product.brand}</p>
+                    <h2 className="mt-1 font-semibold leading-5">{line.product.name}</h2>
+                    <p className="mt-2 text-sm font-bold">{formatDzd(line.product.price)}</p>
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="flex items-center border border-[var(--ed-line)] bg-white">
+                        <button onClick={() => onQuantity(line.product.id, line.quantity - 1)} className="grid h-8 w-8 place-items-center" data-testid={`button-page-minus-${line.product.id}`}>
+                          <Minus size={13} />
+                        </button>
+                        <span className="ed-mono w-8 text-center text-xs">{line.quantity}</span>
+                        <button onClick={() => onQuantity(line.product.id, line.quantity + 1)} className="grid h-8 w-8 place-items-center" data-testid={`button-page-plus-${line.product.id}`}>
+                          <Plus size={13} />
+                        </button>
+                      </div>
+                      <button onClick={() => onRemove(line.product.id)} className="text-xs text-slate-400 underline hover:text-[var(--ed-rust)]" data-testid={`button-page-remove-${line.product.id}`}>
+                        Retirer
+                      </button>
+                    </div>
+                  </div>
+                  <p className="hidden font-bold sm:block">{formatDzd(line.product.price * line.quantity)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* LeadForm replacing the old aside */}
+        <aside className="h-fit lg:sticky lg:top-24">
+          {lines.length > 0 ? (
+            <LeadForm
+              productName={lines.map((l) => `${l.quantity}x ${l.product.name}`).join(' + ')}
+              unitPrice={total}
+              initialQuantity={1}
+            />
+          ) : (
+            <div className="border border-[var(--ed-line)] bg-white p-6 text-center text-slate-500 text-sm">
+              أضف منتجات إلى السلة للمتابعة إلى تأكيد الطلب
+            </div>
+          )}
+        </aside>
+      </div>
+    </div>
+  );
 }
 
 function Router() {

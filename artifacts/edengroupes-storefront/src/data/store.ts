@@ -16,6 +16,7 @@ export type Product = {
   specs: string[];
   color: string;
   icon: string;
+  imageUrl?: string;
 };
 
 export type CatalogLink = {
@@ -68,6 +69,7 @@ export const products: Product[] = [
     specs: ['Batterie 20V Li-ion', 'Mandrin 10 mm', '2 vitesses mécaniques', '2 batteries incluses'],
     color: '#f1be44',
     icon: 'drill',
+    imageUrl: '/images/prod-12.webp',
   },
   {
     id: 'beetro-hoist-2t',
@@ -86,6 +88,7 @@ export const products: Product[] = [
     specs: ['Capacité 2 000 kg', 'Chaîne 6 mètres', 'Télécommande filaire', 'Moteur 1 500 W'],
     color: '#6c879d',
     icon: 'anchor',
+    imageUrl: '/images/prod-1.webp',
   },
   {
     id: 'ingco-cidli20601',
@@ -105,6 +108,7 @@ export const products: Product[] = [
     specs: ['Couple max. 200 Nm', 'Mandrin 1/4"', 'Moteur brushless', 'Batterie vendue séparément'],
     color: '#e6a83d',
     icon: 'settings',
+    imageUrl: '/images/prod-2.webp',
   },
   {
     id: 'honestpro-laser-4d',
@@ -124,6 +128,7 @@ export const products: Product[] = [
     specs: ['16 lignes vertes', 'Autonivelant ±3°', 'Portée 30 m', 'Batterie 4000 mAh'],
     color: '#7ca27d',
     icon: 'scan-line',
+    imageUrl: '/images/prod-3.webp',
   },
   {
     id: 'powerblu-led-100',
@@ -143,6 +148,7 @@ export const products: Product[] = [
     specs: ['Puissance 100W', '6500K lumière froide', 'IP65', 'Support orientable'],
     color: '#e4ae3d',
     icon: 'lamp',
+    imageUrl: '/images/prod-4.webp',
   },
   {
     id: 'fixtop-welder-250',
@@ -161,6 +167,7 @@ export const products: Product[] = [
     specs: ['Intensité 20–250A', 'Électrodes 1.6–4.0 mm', 'Anti-stick', 'Ventilation forcée'],
     color: '#d65a41',
     icon: 'flame',
+    imageUrl: '/images/prod-5.webp',
   },
   {
     id: 'dingqi-multimeter',
@@ -178,6 +185,7 @@ export const products: Product[] = [
     specs: ['6000 points', 'Tension AC/DC', 'Test continuité', 'Étui de protection'],
     color: '#71869c',
     icon: 'activity',
+    imageUrl: '/images/prod-6.webp',
   },
   {
     id: 'modepro-compressor',
@@ -197,6 +205,7 @@ export const products: Product[] = [
     specs: ['Cuve 50 litres', 'Moteur 2.5 HP', 'Pression max. 8 bar', 'Roues de transport'],
     color: '#7a8f9d',
     icon: 'gauge',
+    imageUrl: '/images/prod-7.webp',
   },
   {
     id: 'ingco-grinder',
@@ -216,6 +225,7 @@ export const products: Product[] = [
     specs: ['Puissance 1400W', 'Disque 125 mm', 'Démarrage progressif', 'Poignée 3 positions'],
     color: '#d9993b',
     icon: 'circle-dot',
+    imageUrl: '/images/prod-8.webp',
   },
   {
     id: 'honestpro-scanner',
@@ -233,6 +243,7 @@ export const products: Product[] = [
     specs: ['Écran couleur 5"', 'OBD2 / EOBD', 'Lecture des codes', 'Mises à jour USB'],
     color: '#4d7893',
     icon: 'scan',
+    imageUrl: '/images/prod-9.webp',
   },
   {
     id: 'powerblu-pump',
@@ -250,6 +261,7 @@ export const products: Product[] = [
     specs: ['Moteur 1.5 HP', 'Débit 30 m³/h', 'Corps fonte', 'Aspiration 8 m'],
     color: '#719b78',
     icon: 'droplets',
+    imageUrl: '/images/prod-10.webp',
   },
 ];
 

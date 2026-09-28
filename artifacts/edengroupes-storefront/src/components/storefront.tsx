@@ -87,14 +87,18 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
 
 export function Logo({ compact = false }: { compact?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2.5" data-testid="link-logo">
-      <span className="relative grid h-10 w-10 shrink-0 place-items-center bg-[var(--ed-yellow)] text-[var(--ed-ink)]" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 75%, 75% 100%, 0 100%)' }}>
-        <span className="ed-display text-2xl font-extrabold leading-none">E</span>
+    <Link href="/" className="flex items-center gap-2 shrink-0" data-testid="link-logo">
+      <span className="relative grid h-9 w-9 shrink-0 place-items-center bg-[var(--ed-yellow)] text-[var(--ed-ink)]" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 75%, 75% 100%, 0 100%)' }}>
+        <span className="ed-display text-xl font-black leading-none">K</span>
       </span>
       {!compact && (
-        <span className="leading-none">
-          <span className="ed-display block text-[23px] font-extrabold tracking-tight text-[var(--ed-ink)]">EDEN<span className="text-[var(--ed-rust)]">GROUPES</span></span>
-          <span className="ed-mono mt-1 block text-[8px] font-semibold uppercase tracking-[.24em] text-slate-500">Outils. Équipement. Expertise.</span>
+        <span className="leading-none shrink-0">
+          <span className="ed-display block text-[21px] sm:text-[23px] font-black tracking-tight text-[var(--ed-ink)]">
+            KADYA <span className="text-[var(--ed-rust)] font-black">DZ</span>
+          </span>
+          <span className="ed-mono mt-0.5 block text-[7px] font-semibold uppercase tracking-tight text-slate-500 whitespace-nowrap">
+            Outils · Équipement
+          </span>
         </span>
       )}
     </Link>
@@ -102,6 +106,18 @@ export function Logo({ compact = false }: { compact?: boolean }) {
 }
 
 export function ProductVisual({ product, large = false }: { product: Product; large?: boolean }) {
+  if (product.imageUrl) {
+    return (
+      <div className={`relative flex items-center justify-center overflow-hidden bg-white p-4 ${large ? 'min-h-[340px]' : 'h-[190px]'}`}>
+        <img
+          src={product.imageUrl}
+          alt={product.name}
+          className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
   return (
     <div className={`relative flex items-center justify-center overflow-hidden ${large ? 'min-h-[340px]' : 'h-[190px]'}`} style={{ background: `linear-gradient(135deg, ${product.color} 0%, #f1f0e8 74%)` }}>
       <div className="absolute -right-8 -top-10 h-40 w-40 rounded-full border-[18px] border-white/25" />
@@ -109,12 +125,11 @@ export function ProductVisual({ product, large = false }: { product: Product; la
       <div className="relative grid place-items-center text-[var(--ed-ink)]" style={{ transform: large ? 'scale(4.8)' : 'scale(3.1)' }}>
         <Icon name={product.icon} size={28} />
       </div>
-      <span className="ed-mono absolute bottom-3 left-3 text-[9px] font-semibold uppercase tracking-[.18em] text-black/55">{product.brand} / {product.categoryLabel}</span>
     </div>
   );
 }
 
-export function ProductCard({ product, onAdd, onFavorite, isFavorite }: { product: Product; onAdd: (product: Product) => void; onFavorite: (product: Product) => void; isFavorite: boolean }) {
+export function ProductCard({ product, onAdd }: { product: Product; onAdd: (product: Product) => void; onFavorite?: (product: Product) => void; isFavorite?: boolean }) {
   return (
     <article className="ed-card group overflow-hidden border border-[var(--ed-line)] bg-white" data-testid={`card-product-${product.id}`}>
       <div className="relative">
@@ -122,15 +137,8 @@ export function ProductCard({ product, onAdd, onFavorite, isFavorite }: { produc
           <ProductVisual product={product} />
         </Link>
         {product.badge && <span className="absolute left-3 top-3 bg-[var(--ed-rust)] px-2 py-1 text-[10px] font-bold tracking-[.12em] text-white">{product.badge}</span>}
-        <button className="ed-button absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-slate-600 hover:bg-[var(--ed-ink)] hover:text-white" onClick={() => onFavorite(product)} data-testid={`button-favorite-${product.id}`} aria-label="Ajouter aux favoris">
-          <Heart size={15} fill={isFavorite ? 'currentColor' : 'none'} />
-        </button>
       </div>
       <div className="space-y-3 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <span className="ed-mono text-[10px] font-semibold tracking-[.15em] text-slate-400">{product.brand}</span>
-          <span className="flex items-center gap-1 text-[11px] font-medium text-slate-500"><span className="text-[var(--ed-yellow)]">★</span>{product.rating} ({product.reviews})</span>
-        </div>
         <Link href={`/product/${product.slug}`} className="block" data-testid={`link-product-title-${product.id}`}>
           <h3 className="min-h-[48px] text-[15px] font-semibold leading-6 text-[var(--ed-ink)] group-hover:text-[var(--ed-rust)]">{product.name}</h3>
         </Link>
@@ -164,8 +172,8 @@ export function Header({ cartCount, favoriteCount, onOpenSearch }: { cartCount: 
         </div>
       </div>
       <header className="sticky top-0 z-40 border-b border-[var(--ed-line)] bg-[#f8f7f3]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1440px] items-center gap-4 px-4 py-3 md:px-5">
-          <button onClick={() => setMenuOpen(!menuOpen)} className="grid h-10 w-10 place-items-center text-[var(--ed-ink)] md:hidden" data-testid="button-open-menu"><Menu size={21} /></button>
+        <div className="mx-auto flex max-w-[1440px] items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-2.5 md:px-5">
+          <button onClick={() => setMenuOpen(!menuOpen)} className="grid h-9 w-9 shrink-0 place-items-center text-[var(--ed-ink)] md:hidden" data-testid="button-open-menu"><Menu size={20} /></button>
           <Logo />
           <div className="hidden items-center gap-1 lg:flex">
             <Link href="/shop" className={`px-3 py-3 text-sm font-semibold ${location === '/shop' ? 'text-[var(--ed-rust)]' : 'text-[var(--ed-ink)] hover:text-[var(--ed-rust)]'}`} data-testid="link-nav-shop">Boutique</Link>
@@ -173,10 +181,10 @@ export function Header({ cartCount, favoriteCount, onOpenSearch }: { cartCount: 
             <Link href="/brands" className="px-3 py-3 text-sm font-semibold text-[var(--ed-ink)] hover:text-[var(--ed-rust)]" data-testid="link-nav-brands">Marques</Link>
             <Link href="/professions" className="px-3 py-3 text-sm font-semibold text-[var(--ed-ink)] hover:text-[var(--ed-rust)]" data-testid="link-nav-professions">Par métier</Link>
           </div>
-          <button onClick={onOpenSearch} className="ml-auto flex min-w-0 flex-1 items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2.5 text-left text-sm text-slate-500 hover:border-slate-400 md:max-w-[420px]" data-testid="button-open-search">
-            <Search size={17} /><span className="truncate">Rechercher une perceuse, un poste à souder...</span><span className="ed-mono ml-auto hidden text-[9px] text-slate-400 md:block">⌘ K</span>
+          <button onClick={onOpenSearch} className="relative flex min-w-0 flex-1 items-center justify-center gap-2 rounded-md border border-[var(--ed-line)] bg-white px-3 py-2 text-center text-sm text-slate-500 hover:border-slate-400 md:max-w-[420px]" data-testid="button-open-search">
+            <Search size={16} className="shrink-0 text-slate-400" /><span className="truncate text-xs sm:text-sm font-medium">ابحث عن المنتج</span><span className="ed-mono absolute right-3 top-1/2 -translate-y-1/2 hidden text-[9px] text-slate-400 md:block">⌘ K</span>
           </button>
-          <Link href="/cart" className="relative grid h-10 w-10 place-items-center text-[var(--ed-ink)] hover:text-[var(--ed-rust)]" data-testid="link-cart-header"><ShoppingCart size={21} /><span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--ed-rust)] px-1 text-[10px] font-bold text-white">{cartCount}</span></Link>
+          <Link href="/cart" className="relative grid h-9 w-9 shrink-0 place-items-center text-[var(--ed-ink)] hover:text-[var(--ed-rust)]" data-testid="link-cart-header"><ShoppingCart size={20} /><span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--ed-rust)] px-1 text-[10px] font-bold text-white">{cartCount}</span></Link>
           <button onClick={() => setMenuOpen(true)} className="hidden h-10 w-10 place-items-center text-[var(--ed-ink)] hover:text-[var(--ed-rust)] md:grid" data-testid="button-account"><UserRound size={20} /></button>
           {favoriteCount > 0 && <span className="sr-only">{favoriteCount} favoris</span>}
         </div>
@@ -209,9 +217,9 @@ export function Footer() {
           </div>
           <div><p className="ed-mono mb-4 text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">Acheter</p><div className="grid gap-2 text-sm text-white/70"><Link href="/shop" className="hover:text-white" data-testid="link-footer-shop">Tous les produits</Link><Link href="/promotions" className="hover:text-white" data-testid="link-footer-promotions">Promotions</Link><Link href="/brands" className="hover:text-white" data-testid="link-footer-brands">Nos marques</Link><Link href="/professions" className="hover:text-white" data-testid="link-footer-professions">Par métier</Link></div></div>
           <div><p className="ed-mono mb-4 text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">Besoin d’aide</p><div className="grid gap-2 text-sm text-white/70"><a href="tel:0560000000" className="text-left hover:text-white" data-testid="link-footer-contact">Nous contacter</a><a href="mailto:service@edengroupes.com" className="text-left hover:text-white" data-testid="link-footer-delivery">Livraison & retours</a><a href="mailto:service@edengroupes.com" className="text-left hover:text-white" data-testid="link-footer-payment">Paiement à la livraison</a></div></div>
-          <div><p className="ed-mono mb-4 text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">EdenGroupes pro</p><p className="text-sm leading-6 text-white/70">Un besoin en quantité ? Écrivez à notre équipe pour un devis chantier ou atelier.</p><a href="mailto:pro@edengroupes.com" className="ed-button mt-5 inline-flex items-center gap-2 bg-[var(--ed-yellow)] px-4 py-3 text-sm font-bold text-[var(--ed-ink)] hover:bg-white" data-testid="link-pro-contact">Demander un devis <ArrowRight size={15} /></a></div>
+          <div><p className="ed-mono mb-4 text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">Kadya DZ pro</p><p className="text-sm leading-6 text-white/70">Un besoin en quantité ? Écrivez à notre équipe pour un devis chantier ou atelier.</p><a href="mailto:pro@kadyadz.com" className="ed-button mt-5 inline-flex items-center gap-2 bg-[var(--ed-yellow)] px-4 py-3 text-sm font-bold text-[var(--ed-ink)] hover:bg-white" data-testid="link-pro-contact">Demander un devis <ArrowRight size={15} /></a></div>
         </div>
-        <div className="mt-12 flex flex-col justify-between gap-3 border-t border-white/15 pt-5 text-xs text-white/40 md:flex-row"><span>© 2024 EDENGROUPES · La sélection technique.</span><span>Mentions légales · Conditions de vente</span></div>
+        <div className="mt-12 flex flex-col justify-between gap-3 border-t border-white/15 pt-5 text-xs text-white/40 md:flex-row"><span>© 2024 KADYA DZ · La sélection technique.</span><span>Mentions légales · Conditions de vente</span></div>
       </div>
     </footer>
   );
@@ -226,9 +234,9 @@ export function SearchOverlay({ open, onClose, onSubmit }: { open: boolean; onCl
   if (!open) return null;
   return <div className="fixed inset-0 z-[60] bg-[var(--ed-ink)]/60 p-4 backdrop-blur-sm" onClick={onClose}>
     <div className="mx-auto mt-[10vh] max-w-2xl bg-[#f8f7f3] p-5 shadow-2xl md:p-7" onClick={(event) => event.stopPropagation()}>
-      <div className="flex items-center justify-between"><p className="ed-display text-3xl font-bold text-[var(--ed-ink)]">Que cherchez-vous ?</p><button onClick={onClose} className="grid h-9 w-9 place-items-center hover:bg-black/5" data-testid="button-close-search"><X size={19} /></button></div>
-      <form className="mt-6 flex border-2 border-[var(--ed-ink)] bg-white" onSubmit={(event) => { event.preventDefault(); onSubmit(value); onClose(); }}><input autoFocus value={value} onChange={(event) => setValue(event.target.value)} className="min-w-0 flex-1 px-4 py-4 text-base outline-none" placeholder="Référence, marque, outil..." data-testid="input-search-overlay" /><button className="bg-[var(--ed-yellow)] px-5 text-[var(--ed-ink)]" data-testid="button-submit-search"><Search size={20} /></button></form>
-      <div className="mt-6"><p className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">Suggestions rapides</p><div className="mt-3 grid gap-1">{suggestions.map((suggestion) => <button key={suggestion} onClick={() => { setValue(suggestion); onSubmit(suggestion); onClose(); }} className="flex items-center gap-3 border-b border-slate-200 py-3 text-left text-sm font-medium text-[var(--ed-ink)] hover:text-[var(--ed-rust)]" data-testid={`button-suggestion-${suggestion.slice(0, 10)}`}><Search size={15} className="text-slate-400" />{suggestion}<ArrowRight size={14} className="ml-auto text-slate-400" /></button>)}</div></div>
+      <div className="flex items-center justify-between"><p className="ed-display text-2xl font-bold text-[var(--ed-ink)]">ابحث عن منتجك</p><button onClick={onClose} className="grid h-9 w-9 place-items-center hover:bg-black/5" data-testid="button-close-search"><X size={19} /></button></div>
+      <form className="mt-6 flex border-2 border-[var(--ed-ink)] bg-white rounded-md overflow-hidden" onSubmit={(event) => { event.preventDefault(); onSubmit(value); onClose(); }}><input autoFocus value={value} onChange={(event) => setValue(event.target.value)} className="min-w-0 flex-1 px-4 py-4 text-base outline-none text-right" dir="rtl" placeholder="ابحث عن المنتج، العلامة، أو الأداة" data-testid="input-search-overlay" /><button className="bg-[var(--ed-yellow)] px-5 text-[var(--ed-ink)]" data-testid="button-submit-search"><Search size={20} /></button></form>
+      <div className="mt-6"><p className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">اقتراحات سريعة</p><div className="mt-3 grid gap-1">{suggestions.map((suggestion) => <button key={suggestion} onClick={() => { setValue(suggestion); onSubmit(suggestion); onClose(); }} className="flex items-center gap-3 border-b border-slate-200 py-3 text-left text-sm font-medium text-[var(--ed-ink)] hover:text-[var(--ed-rust)]" data-testid={`button-suggestion-${suggestion.slice(0, 10)}`}><Search size={15} className="text-slate-400" />{suggestion}<ArrowRight size={14} className="ml-auto text-slate-400" /></button>)}</div></div>
     </div>
   </div>;
 }
