@@ -199,34 +199,41 @@ function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   if (!product) return <NotFound />;
   return (
-    <div className="mx-auto max-w-[1440px] px-5 py-5 md:py-10">
-      <div className="grid gap-8 lg:grid-cols-[1.05fr_.95fr]">
-        <div>
-          <div className="border border-[var(--ed-line)] bg-white">
-            <ProductVisual product={product} large />
-          </div>
-          <div className="mt-8 hidden lg:block">
-            <div className="border border-[var(--ed-line)] bg-white p-6">
-              <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Fiche technique</p>
-              <h2 className="ed-display mt-2 text-3xl font-bold">Ce qu’il faut savoir.</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{product.summary}</p>
-              <div className="mt-6 border-t border-[var(--ed-line)]">
-                {product.specs.map((spec, index) => (
-                  <div key={spec} className="flex items-center justify-between border-b border-[var(--ed-line)] py-3.5 text-sm">
-                    <span className="text-slate-500">0{index + 1}</span>
-                    <span className="font-semibold text-[var(--ed-ink)]">{spec}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+    <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
+      <div className="grid gap-8 md:grid-cols-[1.05fr_.95fr]">
+        <div className="border border-[var(--ed-line)] bg-white">
+          <ProductVisual product={product} large />
         </div>
 
         <div className="pt-2">
-          <h1 className="ed-display text-4xl font-bold leading-[1.05] text-[var(--ed-ink)] md:text-5xl">{product.name}</h1>
-          <div className="mt-5 border-y border-[var(--ed-line)] py-4">
+          <div className="flex items-center justify-between">
+            <span className="ed-mono text-[11px] font-semibold uppercase tracking-[.18em] text-[var(--ed-rust)]">
+              {product.brand} · {product.categoryLabel}
+            </span>
+            <button
+              onClick={() => toggleFavorite(product)}
+              className="grid h-10 w-10 place-items-center rounded-full border border-[var(--ed-line)] hover:border-[var(--ed-rust)] hover:text-[var(--ed-rust)]"
+              data-testid={`button-detail-favorite-${product.id}`}
+            >
+              <Heart size={18} fill={favorites.includes(product.id) ? 'currentColor' : 'none'} />
+            </button>
+          </div>
+
+          <h1 className="ed-display mt-4 text-5xl font-bold leading-[.95] text-[var(--ed-ink)] md:text-6xl">
+            {product.name}
+          </h1>
+
+          <div className="mt-5 flex items-center gap-3 text-sm">
+            <span className="text-[var(--ed-yellow)]">★★★★★</span>
+            <span className="font-semibold text-[var(--ed-ink)]">{product.rating}</span>
+            <span className="text-slate-400">({product.reviews} avis)</span>
+          </div>
+
+          <p className="mt-6 text-base leading-7 text-slate-600">{product.summary}</p>
+
+          <div className="mt-7 border-y border-[var(--ed-line)] py-5">
             <div className="flex items-end gap-3">
-              <span className="ed-display text-4xl font-bold text-[var(--ed-ink)]">{formatDzd(product.price)}</span>
+              <span className="ed-display text-5xl font-bold text-[var(--ed-ink)]">{formatDzd(product.price)}</span>
               {product.oldPrice && <span className="mb-1 text-sm text-slate-400 line-through">{formatDzd(product.oldPrice)}</span>}
             </div>
             <p className="mt-2 flex items-center gap-2 text-xs text-emerald-700">
@@ -234,20 +241,35 @@ function ProductPage() {
             </p>
           </div>
 
-          {/* New Lead Form embedded in Product Page */}
+          {/* Lead Form embedded in Product Page */}
           <div className="mt-6">
             <LeadForm productName={product.name} unitPrice={product.price} initialQuantity={1} />
+          </div>
+
+          <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            <div className="border border-[var(--ed-line)] bg-white p-4">
+              <Truck size={18} className="text-[var(--ed-rust)]" />
+              <p className="mt-3 text-sm font-bold">Livraison à domicile</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Partout en Algérie, délai confirmé à la commande.</p>
+            </div>
+            <div className="border border-[var(--ed-line)] bg-white p-4">
+              <Banknote size={18} className="text-[var(--ed-rust)]" />
+              <p className="mt-3 text-sm font-bold">Paiement à la livraison</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Vous payez au moment de recevoir votre colis.</p>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-12 lg:hidden">
-        <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Fiche technique</p>
-        <h2 className="ed-display mt-2 text-3xl font-bold">Ce qu’il faut savoir.</h2>
-        <p className="mt-3 text-sm leading-6 text-slate-600">{product.summary}</p>
-        <div className="mt-6 border-t border-[var(--ed-line)]">
+      <div className="mt-16 grid gap-8 md:grid-cols-[.8fr_1.2fr]">
+        <div>
+          <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Fiche technique</p>
+          <h2 className="ed-display mt-2 text-4xl font-bold">Ce qu’il faut savoir.</h2>
+          <p className="mt-3 text-sm leading-6 text-slate-600">{product.summary}</p>
+        </div>
+        <div className="border-t border-[var(--ed-line)]">
           {product.specs.map((spec, index) => (
-            <div key={spec} className="flex items-center justify-between border-b border-[var(--ed-line)] py-3 text-sm">
+            <div key={spec} className="flex items-center justify-between border-b border-[var(--ed-line)] py-4 text-sm">
               <span className="text-slate-500">0{index + 1}</span>
               <span className="font-semibold text-[var(--ed-ink)]">{spec}</span>
             </div>

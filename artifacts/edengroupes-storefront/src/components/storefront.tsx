@@ -87,16 +87,16 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
 
 export function Logo({ compact = false }: { compact?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2 shrink-0" data-testid="link-logo">
-      <span className="relative grid h-9 w-9 shrink-0 place-items-center bg-[var(--ed-yellow)] text-[var(--ed-ink)]" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 75%, 75% 100%, 0 100%)' }}>
-        <span className="ed-display text-xl font-black leading-none">K</span>
+    <Link href="/" className="flex items-center gap-2.5 shrink-0" data-testid="link-logo">
+      <span className="relative grid h-10 w-10 shrink-0 place-items-center bg-[var(--ed-yellow)] text-[var(--ed-ink)]" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 75%, 75% 100%, 0 100%)' }}>
+        <span className="ed-display text-2xl font-black leading-none">K</span>
       </span>
       {!compact && (
-        <span className="leading-none shrink-0">
-          <span className="ed-display block text-[21px] sm:text-[23px] font-black tracking-tight text-[var(--ed-ink)]">
+        <span className="leading-none">
+          <span className="ed-display block text-[23px] font-black tracking-tight text-[var(--ed-ink)]">
             KADYA <span className="text-[var(--ed-rust)] font-black">DZ</span>
           </span>
-          <span className="ed-mono mt-0.5 block text-[7px] font-semibold uppercase tracking-tight text-slate-500 whitespace-nowrap">
+          <span className="ed-mono mt-1 block text-[8px] font-semibold uppercase tracking-[.22em] text-slate-500 whitespace-nowrap">
             Outils · Équipement
           </span>
         </span>
@@ -172,8 +172,8 @@ export function Header({ cartCount, favoriteCount, onOpenSearch }: { cartCount: 
         </div>
       </div>
       <header className="sticky top-0 z-40 border-b border-[var(--ed-line)] bg-[#f8f7f3]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1440px] items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-2.5 md:px-5">
-          <button onClick={() => setMenuOpen(!menuOpen)} className="grid h-9 w-9 shrink-0 place-items-center text-[var(--ed-ink)] md:hidden" data-testid="button-open-menu"><Menu size={20} /></button>
+        <div className="mx-auto flex max-w-[1440px] items-center gap-4 px-4 py-3 md:px-5">
+          <button onClick={() => setMenuOpen(!menuOpen)} className="grid h-10 w-10 shrink-0 place-items-center text-[var(--ed-ink)] md:hidden" data-testid="button-open-menu"><Menu size={21} /></button>
           <Logo />
           <div className="hidden items-center gap-1 lg:flex">
             <Link href="/shop" className={`px-3 py-3 text-sm font-semibold ${location === '/shop' ? 'text-[var(--ed-rust)]' : 'text-[var(--ed-ink)] hover:text-[var(--ed-rust)]'}`} data-testid="link-nav-shop">Boutique</Link>
@@ -181,10 +181,10 @@ export function Header({ cartCount, favoriteCount, onOpenSearch }: { cartCount: 
             <Link href="/brands" className="px-3 py-3 text-sm font-semibold text-[var(--ed-ink)] hover:text-[var(--ed-rust)]" data-testid="link-nav-brands">Marques</Link>
             <Link href="/professions" className="px-3 py-3 text-sm font-semibold text-[var(--ed-ink)] hover:text-[var(--ed-rust)]" data-testid="link-nav-professions">Par métier</Link>
           </div>
-          <button onClick={onOpenSearch} className="relative flex min-w-0 flex-1 items-center justify-center gap-2 rounded-md border border-[var(--ed-line)] bg-white px-3 py-2 text-center text-sm text-slate-500 hover:border-slate-400 md:max-w-[420px]" data-testid="button-open-search">
-            <Search size={16} className="shrink-0 text-slate-400" /><span className="truncate text-xs sm:text-sm font-medium">ابحث عن المنتج</span><span className="ed-mono absolute right-3 top-1/2 -translate-y-1/2 hidden text-[9px] text-slate-400 md:block">⌘ K</span>
+          <button onClick={onOpenSearch} className="ml-auto flex min-w-0 flex-1 items-center justify-center gap-2 rounded-md border border-[var(--ed-line)] bg-white px-3 py-2.5 text-center text-sm text-slate-500 hover:border-slate-400 md:max-w-[420px]" data-testid="button-open-search">
+            <Search size={17} className="shrink-0 text-slate-400" /><span className="truncate text-sm font-medium">ابحث عن المنتج</span><span className="ed-mono ml-auto hidden text-[9px] text-slate-400 md:block">⌘ K</span>
           </button>
-          <Link href="/cart" className="relative grid h-9 w-9 shrink-0 place-items-center text-[var(--ed-ink)] hover:text-[var(--ed-rust)]" data-testid="link-cart-header"><ShoppingCart size={20} /><span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--ed-rust)] px-1 text-[10px] font-bold text-white">{cartCount}</span></Link>
+          <Link href="/cart" className="relative grid h-10 w-10 shrink-0 place-items-center text-[var(--ed-ink)] hover:text-[var(--ed-rust)]" data-testid="link-cart-header"><ShoppingCart size={21} /><span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--ed-rust)] px-1 text-[10px] font-bold text-white">{cartCount}</span></Link>
           <button onClick={() => setMenuOpen(true)} className="hidden h-10 w-10 place-items-center text-[var(--ed-ink)] hover:text-[var(--ed-rust)] md:grid" data-testid="button-account"><UserRound size={20} /></button>
           {favoriteCount > 0 && <span className="sr-only">{favoriteCount} favoris</span>}
         </div>
