@@ -109,7 +109,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const onSearch = (value: string) => setLocation(`/search?q=${encodeURIComponent(value)}`);
 
   const store = { cart, favorites, addToCart, toggleFavorite, updateQuantity, removeLine };
-  return <StoreContext.Provider value={store}><div className="min-h-[100dvh] bg-[var(--ed-paper)] text-[var(--ed-ink)]">
+  return <StoreContext.Provider value={store}><div className="min-h-[100dvh] overflow-x-hidden bg-[var(--ed-paper)] text-[var(--ed-ink)]">
     <Header cartCount={cartCount} favoriteCount={favorites.length} onOpenSearch={() => setSearchOpen(true)} />
     <main>{children}</main>
     <Footer />
