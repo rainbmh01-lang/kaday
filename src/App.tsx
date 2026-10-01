@@ -193,7 +193,6 @@ function ProfessionPage() {
 }
 
 function ProductPage() {
-  const { addToCart, toggleFavorite, favorites } = useStore();
   const { slug } = useParams<{ slug: string }>();
   const product = findProduct(slug);
   const [quantity, setQuantity] = useState(1);
@@ -206,17 +205,10 @@ function ProductPage() {
         </div>
 
         <div className="pt-2">
-          <div className="flex items-center justify-between">
+          <div>
             <span className="ed-mono text-[11px] font-semibold uppercase tracking-[.18em] text-[var(--ed-rust)]">
               {product.brand} · {product.categoryLabel}
             </span>
-            <button
-              onClick={() => toggleFavorite(product)}
-              className="grid h-10 w-10 place-items-center rounded-full border border-[var(--ed-line)] hover:border-[var(--ed-rust)] hover:text-[var(--ed-rust)]"
-              data-testid={`button-detail-favorite-${product.id}`}
-            >
-              <Heart size={18} fill={favorites.includes(product.id) ? 'currentColor' : 'none'} />
-            </button>
           </div>
 
           <h1 className="ed-display mt-4 text-5xl font-bold leading-[.95] text-[var(--ed-ink)] md:text-6xl">
