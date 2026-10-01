@@ -205,13 +205,7 @@ function ProductPage() {
         </div>
 
         <div className="pt-2">
-          <div>
-            <span className="ed-mono text-[11px] font-semibold uppercase tracking-[.18em] text-[var(--ed-rust)]">
-              {product.brand} · {product.categoryLabel}
-            </span>
-          </div>
-
-          <h1 className="ed-display mt-4 text-5xl font-bold leading-[.95] text-[var(--ed-ink)] md:text-6xl">
+          <h1 className="ed-display text-5xl font-bold leading-[.95] text-[var(--ed-ink)] md:text-6xl">
             {product.name}
           </h1>
 
