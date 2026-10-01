@@ -215,12 +215,6 @@ function ProductPage() {
             {product.name}
           </h1>
 
-          <div className="mt-5 flex items-center gap-3 text-sm">
-            <span className="text-[var(--ed-yellow)]">★★★★★</span>
-            <span className="font-semibold text-[var(--ed-ink)]">{product.rating}</span>
-            <span className="text-slate-400">({product.reviews} avis)</span>
-          </div>
-
           <p className="mt-6 text-base leading-7 text-slate-600">{product.summary}</p>
 
           <div className="mt-7 border-y border-[var(--ed-line)] py-5">
