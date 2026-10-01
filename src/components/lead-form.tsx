@@ -311,11 +311,10 @@ export function LeadForm({
                   )}
                 </span>
               </div>
-              <div className="mt-3 flex items-baseline justify-between">
-                <span className="text-xs sm:text-sm font-extrabold text-[var(--ed-ink)]">
+              <div className="mt-2.5 flex items-baseline">
+                <span className="text-sm sm:text-base font-extrabold text-[var(--ed-ink)]">
                   {formatDzd(selectedWilaya.deskPrice)}
                 </span>
-                <span className="text-[10px] sm:text-xs text-slate-500">Stop Desk</span>
               </div>
             </button>
 
@@ -346,11 +345,10 @@ export function LeadForm({
                   )}
                 </span>
               </div>
-              <div className="mt-3 flex items-baseline justify-between">
-                <span className="text-xs sm:text-sm font-extrabold text-[var(--ed-ink)]">
+              <div className="mt-2.5 flex items-baseline">
+                <span className="text-sm sm:text-base font-extrabold text-[var(--ed-ink)]">
                   {formatDzd(selectedWilaya.homePrice)}
                 </span>
-                <span className="text-[10px] sm:text-xs text-slate-500">لغاية باب منزلك</span>
               </div>
             </button>
           </div>
