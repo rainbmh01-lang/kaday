@@ -930,6 +930,40 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Google Drive Local Mount Card */}
+            <div className="rounded-2xl border border-[var(--ed-line)] bg-white p-6">
+              <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
+                    Dossier Google Drive Connecté (G:\Mon Drive)
+                  </span>
+                  <h2 className="ed-display mt-2 text-2xl font-black">
+                    Fichiers Déjà Créés dans Votre Drive
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Trois fichiers complets ont été générés et placés directement dans votre dossier Google Drive :
+                  </p>
+                  <ul className="mt-2 space-y-1 text-xs font-mono text-slate-700">
+                    <li>📊 <strong>G:\Mon Drive\KADYA_DZ_COMMANDES_OFFICIEL.xlsx</strong> (Classeur Excel structuré avec colonnes, couleurs et filtres)</li>
+                    <li>📄 <strong>G:\Mon Drive\KADYA DZ COMMANDE.csv</strong> (Fichier CSV avec encodage UTF-8 et données commandes)</li>
+                    <li>⚡ <strong>G:\Mon Drive\CODE_APPS_SCRIPT_PRET.js</strong> (Script de synchronisation prêt à l'emploi)</li>
+                  </ul>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href="https://drive.google.com/drive/u/0/my-drive"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700"
+                  >
+                    <span>Mon Drive en ligne</span>
+                    <ExternalLink size={14} />
+                  </a>
+                </div>
+              </div>
+            </div>
+
             {/* Google Apps Script Integration Guide */}
             <div className="rounded-2xl border border-[var(--ed-line)] bg-white p-6">
               <h3 className="ed-display text-xl font-bold">Liaison Webhook Automatique (Direct Write)</h3>
