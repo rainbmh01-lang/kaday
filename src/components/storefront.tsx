@@ -108,7 +108,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
 export function ProductVisual({ product, large = false }: { product: Product; large?: boolean }) {
   if (product.imageUrl) {
     return (
-      <div className={`relative flex items-center justify-center overflow-hidden bg-white p-3 sm:p-4 ${large ? 'h-[230px] sm:h-[280px] md:min-h-[340px]' : 'h-[190px]'}`}>
+      <div className={`relative flex items-center justify-center overflow-hidden bg-white p-3 sm:p-4 ${large ? 'aspect-square w-full max-w-[320px] sm:max-w-[360px] mx-auto md:max-w-none md:min-h-[340px]' : 'h-[190px]'}`}>
         <img
           src={product.imageUrl}
           alt={product.name}
@@ -119,7 +119,7 @@ export function ProductVisual({ product, large = false }: { product: Product; la
     );
   }
   return (
-    <div className={`relative flex items-center justify-center overflow-hidden ${large ? 'h-[230px] sm:h-[280px] md:min-h-[340px]' : 'h-[190px]'}`} style={{ background: `linear-gradient(135deg, ${product.color} 0%, #f1f0e8 74%)` }}>
+    <div className={`relative flex items-center justify-center overflow-hidden ${large ? 'aspect-square w-full max-w-[320px] sm:max-w-[360px] mx-auto md:max-w-none md:min-h-[340px]' : 'h-[190px]'}`} style={{ background: `linear-gradient(135deg, ${product.color} 0%, #f1f0e8 74%)` }}>
       <div className="absolute -right-8 -top-10 h-40 w-40 rounded-full border-[18px] border-white/25" />
       <div className="absolute bottom-0 left-0 h-16 w-full bg-gradient-to-t from-black/10 to-transparent" />
       <div className="relative grid place-items-center text-[var(--ed-ink)]" style={{ transform: large ? 'scale(4.8)' : 'scale(3.1)' }}>
