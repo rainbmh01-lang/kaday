@@ -129,7 +129,7 @@ export function ProductVisual({ product, large = false }: { product: Product; la
   );
 }
 
-export function ProductCard({ product, onAdd }: { product: Product; onAdd: (product: Product) => void; onFavorite?: (product: Product) => void; isFavorite?: boolean }) {
+export function ProductCard({ product, onAdd }: { product: Product; onAdd?: (product: Product) => void; onFavorite?: (product: Product) => void; isFavorite?: boolean }) {
   return (
     <article className="ed-card group overflow-hidden border border-[var(--ed-line)] bg-white" data-testid={`card-product-${product.id}`}>
       <div className="relative">
@@ -147,9 +147,6 @@ export function ProductCard({ product, onAdd }: { product: Product; onAdd: (prod
             <p className="ed-display text-[25px] font-bold leading-none text-[var(--ed-ink)]">{formatDzd(product.price)}</p>
             {product.oldPrice && <p className="mt-1 text-xs text-slate-400 line-through">{formatDzd(product.oldPrice)}</p>}
           </div>
-          <button onClick={() => onAdd(product)} className="ed-button grid h-10 w-10 place-items-center bg-[var(--ed-yellow)] text-[var(--ed-ink)] hover:bg-[var(--ed-ink)] hover:text-white" data-testid={`button-add-cart-${product.id}`} aria-label="Ajouter au panier">
-            <ShoppingCart size={17} />
-          </button>
         </div>
         <div className="flex items-center gap-1.5 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
           <PackageCheck size={14} className="text-emerald-600" /> {product.stock}
@@ -270,7 +267,7 @@ export function CategoryTile({ category }: { category: CatalogLink }) {
   return <Link href={`/category/${category.slug}`} className="ed-card group relative min-h-[190px] overflow-hidden border border-[var(--ed-line)] bg-white p-5" data-testid={`link-category-${category.slug}`}><div className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-30" style={{ background: category.color }} /><div className="relative flex h-full flex-col justify-between"><span className="grid h-11 w-11 place-items-center bg-[var(--ed-ink)] text-[var(--ed-yellow)]"><Icon name={category.icon} size={22} /></span><div><h3 className="ed-display text-2xl font-bold leading-none text-[var(--ed-ink)]">{category.label}</h3><p className="mt-2 text-xs text-slate-500">{category.sub}</p><span className="ed-mono mt-4 block text-[10px] uppercase tracking-[.15em] text-[var(--ed-rust)]">{category.count} <ArrowRight className="ml-1 inline" size={12} /></span></div></div></Link>;
 }
 
-export function ProductGrid({ items, onAdd, onFavorite, favorites, emptyLabel = 'Aucun produit trouvé.' }: { items: Product[]; onAdd: (product: Product) => void; onFavorite: (product: Product) => void; favorites: string[]; emptyLabel?: string }) {
+export function ProductGrid({ items, onAdd, onFavorite, favorites, emptyLabel = 'Aucun produit trouvé.' }: { items: Product[]; onAdd?: (product: Product) => void; onFavorite: (product: Product) => void; favorites: string[]; emptyLabel?: string }) {
   if (!items.length) return <div className="border border-dashed border-[var(--ed-line)] bg-white px-6 py-16 text-center"><Box className="mx-auto text-slate-300" size={38} /><p className="mt-4 font-semibold text-[var(--ed-ink)]">{emptyLabel}</p><p className="mt-1 text-sm text-slate-500">Essayez une autre marque, catégorie ou référence.</p></div>;
   return <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 xl:grid-cols-4">{items.map((product) => <ProductCard key={product.id} product={product} onAdd={onAdd} onFavorite={onFavorite} isFavorite={favorites.includes(product.id)} />)}</div>;
 }
