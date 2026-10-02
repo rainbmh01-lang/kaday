@@ -90,9 +90,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!location.startsWith('/product/')) {
-      window.scrollTo(0, 0);
-    }
+    window.scrollTo(0, 0);
   }, [location]);
 
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
@@ -198,39 +196,9 @@ function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
   const product = findProduct(slug);
   const [quantity, setQuantity] = useState(1);
-
-  useEffect(() => {
-    if ('scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual';
-    }
-
-    const scrollToProduct = () => {
-      const el = document.getElementById('product-main');
-      if (el) {
-        const top = el.getBoundingClientRect().top + window.scrollY;
-        if (top > 10) {
-          window.scrollTo({ top, behavior: 'instant' });
-        }
-      }
-    };
-
-    scrollToProduct();
-    const frameId = requestAnimationFrame(scrollToProduct);
-    const t1 = setTimeout(scrollToProduct, 60);
-    const t2 = setTimeout(scrollToProduct, 180);
-    const t3 = setTimeout(scrollToProduct, 350);
-
-    return () => {
-      cancelAnimationFrame(frameId);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, [slug]);
-
   if (!product) return <NotFound />;
   return (
-    <div id="product-main" className="mx-auto max-w-[1440px] px-4 pt-1 pb-6 sm:px-5 sm:py-6 md:py-12">
+    <div id="product-main" className="mx-auto max-w-[1440px] px-4 py-4 sm:px-5 sm:py-6 md:py-12">
       <div className="grid gap-5 md:grid-cols-[1.05fr_.95fr] md:gap-8">
         <div className="border border-[var(--ed-line)] bg-white">
           <ProductVisual product={product} large />
@@ -275,8 +243,7 @@ function ProductPage() {
 
       <div className="mt-16 grid gap-8 md:grid-cols-[.8fr_1.2fr]">
         <div>
-          <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Fiche technique</p>
-          <h2 className="ed-display mt-2 text-4xl font-bold">Ce qu’il faut savoir.</h2>
+          <h2 className="ed-display text-4xl font-bold">Fiche technique</h2>
           <p className="mt-3 text-sm leading-6 text-slate-600">{product.summary}</p>
         </div>
         <div className="border-t border-[var(--ed-line)]">
