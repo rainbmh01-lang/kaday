@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
+import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter, useSearchParams } from 'wouter';
 import {
   ArrowDownUp,
   ArrowRight,
@@ -261,11 +261,98 @@ function ProductPage() {
 }
 
 function SearchPage() {
-  const [location] = useLocation();
-  const query = new URLSearchParams(location.split('?')[1] ?? '').get('q') ?? '';
+  const [searchParams] = useSearchParams();
+  const query = searchParams.get('q') || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('q') || '' : '');
   const { favorites, addToCart, toggleFavorite } = useStore();
-  const results = products.filter((product) => `${product.name} ${product.brand} ${product.categoryLabel}`.toLowerCase().includes(query.toLowerCase()));
-  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Recherche' }]} /><div className="border-b border-[var(--ed-line)] pb-8"><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Recherche catalogue</p><h1 className="ed-display mt-3 text-6xl font-bold leading-none">Résultats pour<br /><span className="text-[var(--ed-rust)]">“{query}”</span></h1></div><div className="mt-10"><ProductGrid items={results} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} emptyLabel="Aucun résultat pour cette recherche." /></div></div>;
+
+  const results = useMemo(() => {
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) return products;
+
+    const terms = trimmed.split(/\s+/).filter(Boolean);
+
+    return products
+      .map((product) => {
+        const nameLower = product.name.toLowerCase();
+        const brandLower = product.brand.toLowerCase();
+        const catLower = product.categoryLabel.toLowerCase();
+        const summaryLower = product.summary.toLowerCase();
+        const specsLower = product.specs.join(' ').toLowerCase();
+
+        let score = 0;
+
+        // Exact full name match gets top priority
+        if (nameLower === trimmed) {
+          score += 2000;
+        } else if (nameLower.startsWith(trimmed)) {
+          score += 1000;
+        } else if (nameLower.includes(trimmed)) {
+          score += 500;
+        }
+
+        // Full query in brand or category
+        if (brandLower === trimmed) {
+          score += 400;
+        } else if (brandLower.includes(trimmed)) {
+          score += 200;
+        }
+
+        // Individual term matches
+        let matchedTerms = 0;
+        for (const term of terms) {
+          let termMatched = false;
+          if (nameLower.includes(term)) {
+            score += 100;
+            termMatched = true;
+          }
+          if (brandLower.includes(term)) {
+            score += 60;
+            termMatched = true;
+          }
+          if (catLower.includes(term)) {
+            score += 30;
+            termMatched = true;
+          }
+          if (summaryLower.includes(term) || specsLower.includes(term)) {
+            score += 15;
+            termMatched = true;
+          }
+          if (termMatched) matchedTerms++;
+        }
+
+        // Bonus if all terms matched
+        if (matchedTerms === terms.length) {
+          score += 300;
+        }
+
+        return { product, score };
+      })
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((item) => item.product);
+  }, [query]);
+
+  return (
+    <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
+      <Breadcrumbs items={[{ label: 'Recherche' }]} />
+      <div className="border-b border-[var(--ed-line)] pb-8">
+        <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Recherche catalogue</p>
+        <h1 className="ed-display mt-3 text-6xl font-bold leading-none">
+          Résultats pour<br />
+          <span className="text-[var(--ed-rust)]">“{query}”</span>
+        </h1>
+      </div>
+      <div className="mt-10">
+        <ProductGrid
+          items={results}
+          onAdd={addToCart}
+          onFavorite={toggleFavorite}
+          favorites={favorites}
+          emptyLabel="Aucun résultat pour cette recherche."
+        />
+      </div>
+    </div>
+  );
 }
 
 function CollectionsPage({ type }: { type: 'brands' | 'professions' }) {

@@ -229,7 +229,18 @@ export function SearchOverlay({ open, onClose, onSubmit }: { open: boolean; onCl
   const [value, setValue] = useState('');
   const suggestions = useMemo(() => {
     if (!value.trim()) return ['Perceuse-visseuse 20V', 'Niveau laser', 'Poste à souder inverter', 'Projecteur LED chantier'];
-    return products.filter((p) => `${p.name} ${p.brand}`.toLowerCase().includes(value.toLowerCase())).slice(0, 5).map((p) => p.name);
+    const lower = value.toLowerCase().trim();
+    return products
+      .filter((p) => `${p.name} ${p.brand}`.toLowerCase().includes(lower))
+      .sort((a, b) => {
+        const aName = a.name.toLowerCase();
+        const bName = b.name.toLowerCase();
+        const aExact = aName === lower ? 3 : aName.startsWith(lower) ? 2 : 1;
+        const bExact = bName === lower ? 3 : bName.startsWith(lower) ? 2 : 1;
+        return bExact - aExact;
+      })
+      .slice(0, 5)
+      .map((p) => p.name);
   }, [value]);
   if (!open) return null;
   return <div className="fixed inset-0 z-[60] bg-[var(--ed-ink)]/60 p-4 backdrop-blur-sm" onClick={onClose}>
