@@ -68,7 +68,18 @@ const STATUS_COLORS: Record<OrderStatus, { bg: string; text: string; border: str
 
 const PIE_COLORS = ['#f59e0b', '#3b82f6', '#8b5cf6', '#10b981', '#ef4444'];
 
+const ADMIN_USER = 'admin';
+const ADMIN_PASS = 'kadya2024';
+
 export default function Dashboard() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('kadyadz_admin_auth') === 'true';
+  });
+  const [loginUser, setLoginUser] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+
   const [activeTab, setActiveTab] = useState<'orders' | 'analytics' | 'marketing' | 'settings'>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState('');
@@ -261,6 +272,83 @@ export default function Dashboard() {
   }
 }`;
 
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginUser.trim() === ADMIN_USER && loginPass === ADMIN_PASS) {
+      setIsAuthenticated(true);
+      sessionStorage.setItem('kadyadz_admin_auth', 'true');
+      setLoginError('');
+    } else {
+      setLoginError('Nom d’utilisateur ou mot de passe incorrect.');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    sessionStorage.removeItem('kadyadz_admin_auth');
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f5f4ef] px-4">
+        <div className="w-full max-w-sm rounded-2xl border border-[var(--ed-line)] bg-white p-6 sm:p-8 shadow-xl text-center">
+          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center bg-[var(--ed-yellow)] text-xl font-black text-[var(--ed-ink)]">
+            K
+          </div>
+          <h1 className="ed-display text-2xl font-black text-[var(--ed-ink)]">
+            KADYA <span className="text-[var(--ed-rust)]">DZ</span>
+          </h1>
+          <p className="mt-1 text-xs text-slate-500 font-semibold uppercase tracking-wider">
+            Connexion Tableau de Bord
+          </p>
+
+          <form onSubmit={handleLogin} className="mt-6 space-y-4 text-left">
+            {loginError && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs font-bold text-rose-700 text-center">
+                {loginError}
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-bold text-slate-700">Utilisateur / Username</label>
+              <input
+                type="text"
+                required
+                autoFocus
+                value={loginUser}
+                onChange={(e) => setLoginUser(e.target.value)}
+                placeholder="admin"
+                className="mt-1 w-full rounded-xl border border-[var(--ed-line)] bg-[#faf9f6] px-3.5 py-2.5 text-sm font-medium outline-none focus:border-[var(--ed-ink)]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700">Mot de passe / Password</label>
+              <input
+                type="password"
+                required
+                value={loginPass}
+                onChange={(e) => setLoginPass(e.target.value)}
+                placeholder="••••••••"
+                className="mt-1 w-full rounded-xl border border-[var(--ed-line)] bg-[#faf9f6] px-3.5 py-2.5 text-sm font-medium outline-none focus:border-[var(--ed-ink)]"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-[var(--ed-yellow)] py-3 text-sm font-black text-[var(--ed-ink)] hover:bg-yellow-400 transition cursor-pointer shadow-xs"
+            >
+              Se connecter
+            </button>
+          </form>
+
+          <div className="mt-6 border-t border-[var(--ed-line)] pt-4">
+            <Link href="/" className="text-xs font-bold text-slate-500 hover:text-[var(--ed-rust)]">
+              ← Retour à la boutique
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f5f4ef] text-[var(--ed-ink)]">
       {/* Top Navbar */}
@@ -298,6 +386,13 @@ export default function Dashboard() {
             >
               Voir la boutique
             </Link>
+
+            <button
+              onClick={handleLogout}
+              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer"
+            >
+              Déconnexion
+            </button>
           </div>
         </div>
       </header>
