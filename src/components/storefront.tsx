@@ -159,7 +159,7 @@ export function ProductCard({ product, onAdd }: { product: Product; onAdd: (prod
   );
 }
 
-export function Header({ cartCount, favoriteCount, onOpenSearch }: { cartCount: number; favoriteCount: number; onOpenSearch: () => void }) {
+export function Header({ cartCount, favoriteCount, onOpenSearch }: { cartCount?: number; favoriteCount: number; onOpenSearch: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [arabic, setArabic] = useState(false);
   const [location] = useLocation();
@@ -185,7 +185,6 @@ export function Header({ cartCount, favoriteCount, onOpenSearch }: { cartCount: 
           <button onClick={onOpenSearch} className="flex min-w-0 flex-1 items-center justify-start gap-1.5 sm:gap-2 rounded-md border border-[var(--ed-line)] bg-white px-2.5 sm:px-3 py-2 sm:py-2.5 text-slate-500 hover:border-slate-400 md:ml-auto md:max-w-[420px]" data-testid="button-open-search">
             <Search size={16} className="shrink-0 text-slate-400 sm:size-[17px]" /><span className="truncate text-xs sm:text-sm font-medium">ابحث عن المنتج</span><span className="ed-mono ml-auto hidden text-[9px] text-slate-400 md:block">⌘ K</span>
           </button>
-          <Link href="/cart" className="relative grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center text-[var(--ed-ink)] hover:text-[var(--ed-rust)]" data-testid="link-cart-header"><ShoppingCart size={20} className="sm:hidden" /><ShoppingCart size={21} className="hidden sm:block" /><span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--ed-rust)] px-1 text-[10px] font-bold text-white">{cartCount}</span></Link>
           <button onClick={() => setMenuOpen(true)} className="hidden h-10 w-10 place-items-center text-[var(--ed-ink)] hover:text-[var(--ed-rust)] md:grid" data-testid="button-account"><UserRound size={20} /></button>
           {favoriteCount > 0 && <span className="sr-only">{favoriteCount} favoris</span>}
         </div>
