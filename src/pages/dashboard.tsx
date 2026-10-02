@@ -190,17 +190,30 @@ export default function Dashboard() {
   };
 
   const handleSyncAll = async () => {
+    const currentSettings = getSheetSettings();
+    if (!currentSettings.webhookUrl) {
+      setSyncFeedback('⚠️ Veuillez d\'abord coller votre URL Webhook Google Apps Script dans l\'onglet "Google Sheets & Sync" pour activer la synchronisation automatique.');
+      setActiveTab('settings');
+      return;
+    }
+
     setIsSyncing(true);
     setSyncFeedback(null);
     try {
-      const res = await syncAllUnsynced();
-      setSyncFeedback(`${res.success} commande(s) synchronisée(s) vers Google Sheets!`);
+      const res = await syncAllUnsynced(currentSettings.webhookUrl);
+      if (res.success > 0) {
+        setSyncFeedback(`✅ ${res.success} commande(s) synchronisée(s) avec succès vers votre Google Sheet !`);
+      } else if (res.failed > 0) {
+        setSyncFeedback(`⚠️ Échec de l'envoi (${res.failed} erreurs). Vérifiez que l'URL Webhook est déployée en accès "Tout le monde" (Anyone).`);
+      } else {
+        setSyncFeedback('Toutes les commandes sont déjà synchronisées.');
+      }
       refreshOrders();
     } catch {
       setSyncFeedback('Erreur lors de la synchronisation.');
     } finally {
       setIsSyncing(false);
-      setTimeout(() => setSyncFeedback(null), 4000);
+      setTimeout(() => setSyncFeedback(null), 5000);
     }
   };
 
@@ -248,9 +261,52 @@ export default function Dashboard() {
     }
   };
 
+  const [testingWebhook, setTestingWebhook] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+
+  const handleTestWebhook = async () => {
+    const url = webhookInput.trim();
+    if (!url) {
+      setTestResult('⚠️ Veuillez d’abord renseigner une URL de Webhook.');
+      return;
+    }
+    setTestingWebhook(true);
+    setTestResult(null);
+    try {
+      const ok = await syncOrderToGoogleSheet(
+        {
+          id: `KD-TEST-${Math.floor(100 + Math.random() * 900)}`,
+          date: new Date().toISOString(),
+          fullName: 'Test Synchronisation Kadya DZ',
+          phone: '0550000000',
+          wilaya: '16 - Alger',
+          deliveryType: 'home',
+          productName: 'Ligne de test automatique',
+          quantity: 1,
+          total: 1000,
+          status: 'Nouveau',
+        },
+        url
+      );
+      if (ok) {
+        setTestResult('✅ Succès ! Une ligne de test a été envoyée vers votre Google Sheet. Vérifiez votre fichier.');
+      } else {
+        setTestResult('⚠️ Échec de l\'envoi. Vérifiez que le déploiement Apps Script est bien configuré avec l\'accès "Tout le monde" (Anyone).');
+      }
+    } catch (e: any) {
+      setTestResult(`Erreur: ${e?.message}`);
+    } finally {
+      setTestingWebhook(false);
+    }
+  };
+
   const appsScriptCode = `function doPost(e) {
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    // Auto-create headers if sheet is empty
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(["Date", "ID Commande", "Nom Client", "Téléphone", "Wilaya", "Mode Livraison", "Produit", "Quantité", "Total (DZD)", "Statut"]);
+    }
     var data = JSON.parse(e.postData.contents);
     sheet.appendRow([
       data.date || new Date().toLocaleString("fr-FR"),
@@ -928,7 +984,20 @@ export default function Dashboard() {
                   >
                     Enregistrer l'URL
                   </button>
+                  <button
+                    type="button"
+                    disabled={testingWebhook}
+                    onClick={handleTestWebhook}
+                    className="rounded-xl border border-emerald-600 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {testingWebhook ? 'Test...' : 'Tester l\'envoi'}
+                  </button>
                 </div>
+                {testResult && (
+                  <p className="mt-2 text-xs font-bold text-slate-700">
+                    {testResult}
+                  </p>
+                )}
               </form>
             </div>
           </div>

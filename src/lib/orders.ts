@@ -253,14 +253,14 @@ function markOrderSynced(orderId: string) {
   }
 }
 
-export async function syncAllUnsynced(): Promise<{ success: number; failed: number }> {
+export async function syncAllUnsynced(customWebhookUrl?: string): Promise<{ success: number; failed: number }> {
   const orders = getOrders();
   const unsynced = orders.filter((o) => !o.syncedToSheet);
   let success = 0;
   let failed = 0;
 
   for (const order of unsynced) {
-    const ok = await syncOrderToGoogleSheet(order);
+    const ok = await syncOrderToGoogleSheet(order, customWebhookUrl);
     if (ok) success++;
     else failed++;
   }
