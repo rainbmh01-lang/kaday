@@ -447,29 +447,36 @@ function CartPage() {
 }
 
 function Router() {
+  const [location] = useLocation();
+  const isDashboard = location === '/dashboard' || location === '/admin' || location.startsWith('/dashboard/') || location.startsWith('/admin/');
+
+  if (isDashboard) {
+    return (
+      <Switch>
+        <Route path="/dashboard" component={Dashboard} />
+        <Route path="/admin" component={Dashboard} />
+        <Route component={Dashboard} />
+      </Switch>
+    );
+  }
+
   return (
-    <Switch>
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/admin" component={Dashboard} />
-      <Route>
-        <Shell>
-          <Switch>
-            <Route path="/" component={Home} />
-            <Route path="/shop"><CatalogPage mode="shop" /></Route>
-            <Route path="/promotions"><CatalogPage mode="promotions" /></Route>
-            <Route path="/category/:category" component={CategoryPage} />
-            <Route path="/brand/:brand" component={BrandPage} />
-            <Route path="/profession/:profession" component={ProfessionPage} />
-            <Route path="/product/:slug" component={ProductPage} />
-            <Route path="/search" component={SearchPage} />
-            <Route path="/cart" component={CartPage} />
-            <Route path="/brands"><CollectionsPage type="brands" /></Route>
-            <Route path="/professions"><CollectionsPage type="professions" /></Route>
-            <Route component={NotFound} />
-          </Switch>
-        </Shell>
-      </Route>
-    </Switch>
+    <Shell>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/shop"><CatalogPage mode="shop" /></Route>
+        <Route path="/promotions"><CatalogPage mode="promotions" /></Route>
+        <Route path="/category/:category" component={CategoryPage} />
+        <Route path="/brand/:brand" component={BrandPage} />
+        <Route path="/profession/:profession" component={ProfessionPage} />
+        <Route path="/product/:slug" component={ProductPage} />
+        <Route path="/search" component={SearchPage} />
+        <Route path="/cart" component={CartPage} />
+        <Route path="/brands"><CollectionsPage type="brands" /></Route>
+        <Route path="/professions"><CollectionsPage type="professions" /></Route>
+        <Route component={NotFound} />
+      </Switch>
+    </Shell>
   );
 }
 
