@@ -90,6 +90,13 @@ function Shell({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
+    if (location.startsWith('/product/')) {
+      const el = document.getElementById('product-main');
+      if (el) {
+        el.scrollIntoView({ behavior: 'instant', block: 'start' });
+        return;
+      }
+    }
     window.scrollTo(0, 0);
   }, [location]);
 
@@ -198,31 +205,31 @@ function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   if (!product) return <NotFound />;
   return (
-    <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
-      <div className="grid gap-8 md:grid-cols-[1.05fr_.95fr]">
+    <div id="product-main" className="mx-auto max-w-[1440px] px-4 py-3 sm:px-5 sm:py-6 md:py-12">
+      <div className="grid gap-6 md:grid-cols-[1.05fr_.95fr] md:gap-8">
         <div className="border border-[var(--ed-line)] bg-white">
           <ProductVisual product={product} large />
         </div>
 
-        <div className="pt-2">
-          <h1 className="ed-display text-5xl font-bold leading-[.95] text-[var(--ed-ink)] md:text-6xl">
+        <div className="pt-1 md:pt-2">
+          <h1 className="ed-display text-2xl font-black leading-[1.05] text-[var(--ed-ink)] sm:text-3xl md:text-5xl md:leading-[.95]">
             {product.name}
           </h1>
 
-          <p className="mt-6 text-base leading-7 text-slate-600">{product.summary}</p>
+          <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm md:text-base leading-5 sm:leading-6 text-slate-600">{product.summary}</p>
 
-          <div className="mt-7 border-y border-[var(--ed-line)] py-5">
+          <div className="mt-3 sm:mt-4 border-y border-[var(--ed-line)] py-2.5 sm:py-4">
             <div className="flex items-end gap-3">
-              <span className="ed-display text-5xl font-bold text-[var(--ed-ink)]">{formatDzd(product.price)}</span>
-              {product.oldPrice && <span className="mb-1 text-sm text-slate-400 line-through">{formatDzd(product.oldPrice)}</span>}
+              <span className="ed-display text-3xl sm:text-4xl md:text-5xl font-bold text-[var(--ed-ink)]">{formatDzd(product.price)}</span>
+              {product.oldPrice && <span className="mb-0.5 sm:mb-1 text-xs sm:text-sm text-slate-400 line-through">{formatDzd(product.oldPrice)}</span>}
             </div>
-            <p className="mt-2 flex items-center gap-2 text-xs text-emerald-700">
+            <p className="mt-1.5 sm:mt-2 flex items-center gap-2 text-[11px] sm:text-xs text-emerald-700">
               <PackageCheck size={14} /> {product.stock} · Expédition rapide sous 24h
             </p>
           </div>
 
           {/* Lead Form embedded in Product Page */}
-          <div className="mt-6">
+          <div className="mt-4 sm:mt-6">
             <LeadForm productName={product.name} unitPrice={product.price} initialQuantity={1} />
           </div>
 

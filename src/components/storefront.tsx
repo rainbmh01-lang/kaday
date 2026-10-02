@@ -108,7 +108,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
 export function ProductVisual({ product, large = false }: { product: Product; large?: boolean }) {
   if (product.imageUrl) {
     return (
-      <div className={`relative flex items-center justify-center overflow-hidden bg-white p-4 ${large ? 'min-h-[340px]' : 'h-[190px]'}`}>
+      <div className={`relative flex items-center justify-center overflow-hidden bg-white p-3 sm:p-4 ${large ? 'h-[230px] sm:h-[280px] md:min-h-[340px]' : 'h-[190px]'}`}>
         <img
           src={product.imageUrl}
           alt={product.name}
@@ -119,7 +119,7 @@ export function ProductVisual({ product, large = false }: { product: Product; la
     );
   }
   return (
-    <div className={`relative flex items-center justify-center overflow-hidden ${large ? 'min-h-[340px]' : 'h-[190px]'}`} style={{ background: `linear-gradient(135deg, ${product.color} 0%, #f1f0e8 74%)` }}>
+    <div className={`relative flex items-center justify-center overflow-hidden ${large ? 'h-[230px] sm:h-[280px] md:min-h-[340px]' : 'h-[190px]'}`} style={{ background: `linear-gradient(135deg, ${product.color} 0%, #f1f0e8 74%)` }}>
       <div className="absolute -right-8 -top-10 h-40 w-40 rounded-full border-[18px] border-white/25" />
       <div className="absolute bottom-0 left-0 h-16 w-full bg-gradient-to-t from-black/10 to-transparent" />
       <div className="relative grid place-items-center text-[var(--ed-ink)]" style={{ transform: large ? 'scale(4.8)' : 'scale(3.1)' }}>
@@ -163,6 +163,7 @@ export function Header({ cartCount, favoriteCount, onOpenSearch }: { cartCount: 
   const [menuOpen, setMenuOpen] = useState(false);
   const [arabic, setArabic] = useState(false);
   const [location] = useLocation();
+  const isProductPage = location.startsWith('/product/');
   return (
     <>
       <div className="hidden bg-[var(--ed-ink)] text-white md:block">
@@ -171,7 +172,7 @@ export function Header({ cartCount, favoriteCount, onOpenSearch }: { cartCount: 
           <span className="flex items-center gap-5 text-white/70"><span>Service client : 0560 00 00 00</span><button onClick={() => { setArabic(!arabic); document.documentElement.dir = !arabic ? 'rtl' : 'ltr'; }} data-testid="button-language" className="text-white hover:text-[var(--ed-yellow)]">{arabic ? 'العربية' : 'FR'} <span className="text-white/40">/</span> {arabic ? 'FR' : 'العربية'}</button></span>
         </div>
       </div>
-      <header className="sticky top-0 z-50 border-b border-[var(--ed-line)] bg-[#f8f7f3]/98 backdrop-blur shadow-xs">
+      <header className={`${isProductPage ? 'relative md:sticky' : 'sticky'} top-0 z-50 border-b border-[var(--ed-line)] bg-[#f8f7f3]/98 backdrop-blur shadow-xs`}>
         <div className="mx-auto flex max-w-[1440px] items-center gap-2 sm:gap-3 md:gap-4 px-2.5 sm:px-4 py-3 sm:py-3.5 md:py-3.5 md:px-5">
           <button onClick={() => setMenuOpen(!menuOpen)} className="grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center text-[var(--ed-ink)] md:hidden" data-testid="button-open-menu"><Menu size={19} className="sm:hidden" /><Menu size={21} className="hidden sm:block" /></button>
           <Logo />
