@@ -1,32 +1,17 @@
-import type { IncomingMessage, ServerResponse } from 'http';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
-interface VercelRequest extends IncomingMessage {
-  body: any;
-  query: Record<string, string>;
-  cookies?: Record<string, string>;
-}
-
-interface VercelResponse extends ServerResponse {
-  status: (statusCode: number) => VercelResponse;
-  json: (data: any) => VercelResponse;
-  send: (body: any) => VercelResponse;
-}
-
-function sha256(val: string): string {
+function sha256(val) {
   if (!val) return '';
-  const trimmed = val.trim().toLowerCase();
-  // If already a sha256 hex string (64 hex characters)
+  const trimmed = String(val).trim().toLowerCase();
   if (/^[a-f0-9]{64}$/.test(trimmed)) {
     return trimmed;
   }
   return crypto.createHash('sha256').update(trimmed).digest('hex');
 }
 
-function normalizePhone(phone: string): string {
+function normalizePhone(phone) {
   if (!phone) return '';
-  let digits = phone.replace(/\D/g, '');
-  // Algerian phone formatting: 05/06/07 -> 2135/2136/2137
+  let digits = String(phone).replace(/\D/g, '');
   if (digits.startsWith('0') && digits.length === 10) {
     digits = '213' + digits.slice(1);
   } else if (digits.startsWith('2130')) {
@@ -37,8 +22,8 @@ function normalizePhone(phone: string): string {
   return digits;
 }
 
-function parseCookies(cookieHeader?: string): Record<string, string> {
-  const list: Record<string, string> = {};
+function parseCookies(cookieHeader) {
+  const list = {};
   if (!cookieHeader) return list;
   cookieHeader.split(';').forEach((cookie) => {
     const parts = cookie.split('=');
@@ -49,8 +34,7 @@ function parseCookies(cookieHeader?: string): Record<string, string> {
   return list;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS setup
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -64,13 +48,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Parse body if raw stream
     let body = req.body;
     if (typeof body === 'string') {
       try {
         body = JSON.parse(body);
       } catch {
-        // keep as is
+        // ignore
       }
     } else if (!body) {
       body = await new Promise((resolve) => {
@@ -91,6 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const pixelId = process.env.META_PIXEL_ID || '4567517706859412';
     const accessToken =
       process.env.META_CAPI_TOKEN ||
+      'EAAWzVJOPnHEBSmuaiTVZAMW1a7bscxLO1yCUcpjzASMCq96GThfNGJ0zK6LlsXuWRFv18N61GbeBNhHUGdCcJrmPQFHXPcp0wPPRzXXiUgiEmVnnyitsi19bU3ZBzdTD8js06wcP8fENc3OBlhovkwjcxGizXzq9SHbHKb2jlDnWaM1G23Pgf0XBVHa1061gZDZD';
     const defaultTestCode = process.env.META_TEST_EVENT_CODE || '';
 
     const {
@@ -107,22 +91,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Missing eventName parameter' });
     }
 
-    // Extract client IP and user agent
     const rawIp =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      (req.headers['x-real-ip'] as string) ||
-      req.socket.remoteAddress ||
+      req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      req.headers['x-real-ip'] ||
+      req.socket?.remoteAddress ||
       '';
     const clientIp = rawIp.replace(/^::ffff:/, '') || '105.101.24.12';
-    const clientUserAgent = (req.headers['user-agent'] as string) || userData.client_user_agent || '';
+    const clientUserAgent = req.headers['user-agent'] || userData.client_user_agent || '';
 
-    // Cookie extraction
     const cookies = parseCookies(req.headers.cookie);
     const fbp = userData.fbp || cookies['_fbp'] || undefined;
     const fbc = userData.fbc || cookies['_fbc'] || undefined;
 
-    // Build user_data with proper hashing
-    const formattedUserData: Record<string, any> = {
+    const formattedUserData = {
       client_ip_address: clientIp,
       client_user_agent: clientUserAgent,
     };
@@ -130,14 +111,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (fbp) formattedUserData.fbp = fbp;
     if (fbc) formattedUserData.fbc = fbc;
 
-    // Phone hashing
     const phoneRaw = userData.phone || userData.ph;
     if (phoneRaw) {
       const normalized = normalizePhone(phoneRaw);
       formattedUserData.ph = [sha256(normalized)];
     }
 
-    // Name hashing
     if (userData.firstName || userData.fn) {
       formattedUserData.fn = [sha256(userData.firstName || userData.fn)];
     }
@@ -145,25 +124,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       formattedUserData.ln = [sha256(userData.lastName || userData.ln)];
     }
     if (userData.fullName && !userData.firstName) {
-      const nameParts = (userData.fullName as string).trim().split(/\s+/);
+      const nameParts = String(userData.fullName).trim().split(/\s+/);
       formattedUserData.fn = [sha256(nameParts[0])];
       if (nameParts.length > 1) {
         formattedUserData.ln = [sha256(nameParts.slice(1).join(' '))];
       }
     }
 
-    // City / State / Country
     if (userData.city || userData.ct) {
       formattedUserData.ct = [sha256(userData.city || userData.ct)];
     }
     if (userData.state || userData.st) {
       formattedUserData.st = [sha256(userData.state || userData.st)];
     }
-    // Algeria country code default
     formattedUserData.country = [sha256(userData.country || 'dz')];
 
     const currentTimestamp = Math.floor(Date.now() / 1000);
-    const eventPayload: Record<string, any> = {
+    const eventPayload = {
       data: [
         {
           event_name: eventName,
@@ -207,7 +184,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       event_id: eventPayload.data[0].event_id,
       event_name: eventName,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error('CAPI handler exception:', err);
     return res.status(500).json({
       success: false,

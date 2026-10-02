@@ -1,17 +1,4 @@
-import type { IncomingMessage, ServerResponse } from 'http';
-
-interface VercelRequest extends IncomingMessage {
-  body: any;
-  query: Record<string, string>;
-}
-
-interface VercelResponse extends ServerResponse {
-  status: (statusCode: number) => VercelResponse;
-  json: (data: any) => VercelResponse;
-  send: (body: any) => VercelResponse;
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -30,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         body = JSON.parse(body);
       } catch {
-        // keep as is
+        // ignore
       }
     } else if (!body) {
       body = await new Promise((resolve) => {
@@ -84,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }),
         });
         sheetResponse = { ok: gasRes.ok, status: gasRes.status };
-      } catch (err: any) {
+      } catch (err) {
         console.warn('Google Sheet Webhook relay error:', err?.message);
         sheetResponse = { error: err?.message };
       }
@@ -96,7 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       sheetSynced: !!targetWebhook && sheetResponse?.ok !== false,
       sheetResponse,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error('Order handler error:', err);
     return res.status(500).json({ error: err?.message || 'Internal error' });
   }
