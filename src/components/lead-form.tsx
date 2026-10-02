@@ -11,6 +11,8 @@ import {
   UserRound,
 } from 'lucide-react';
 import { formatDzd } from '@/data/store';
+import { trackPurchase, trackLead } from '@/lib/meta-tracker';
+import { saveOrder } from '@/lib/orders';
 import wilayasData from '../../data/wilayas.json';
 
 export type Wilaya = {
@@ -94,6 +96,34 @@ export function LeadForm({
     setError('');
     setPhoneError('');
     setSubmitted(true);
+
+    // Save order locally and sync to Google Sheet
+    const newOrder = saveOrder({
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      wilaya: `${selectedWilaya.code} - ${selectedWilaya.nameAr}`,
+      deliveryType,
+      productName: productName || 'Commande KADYA DZ',
+      quantity,
+      total,
+    });
+
+    // Track Meta Purchase & Lead events (Browser Pixel + CAPI)
+    trackPurchase({
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      wilaya: `${selectedWilaya.code} - ${selectedWilaya.nameAr}`,
+      productName: productName || 'Commande KADYA DZ',
+      total,
+      orderId: newOrder.id,
+    });
+    trackLead({
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      wilaya: `${selectedWilaya.code} - ${selectedWilaya.nameAr}`,
+      total,
+    });
+
     if (onSuccess) onSuccess();
   };
 

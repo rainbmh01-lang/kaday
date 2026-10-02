@@ -61,7 +61,14 @@ import {
   type Product,
 } from '@/data/store';
 import NotFound from '@/pages/not-found';
+import Dashboard from '@/pages/dashboard';
 import heroWorkshop from '@/assets/edengroupes-workshop-hero.jpg';
+import {
+  trackPageView,
+  trackViewContent,
+  trackAddToCart,
+  trackInitiateCheckout,
+} from '@/lib/meta-tracker';
 
 const queryClient = new QueryClient();
 
@@ -91,10 +98,12 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    trackPageView(location);
   }, [location]);
 
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const addToCart = (product: Product) => {
+    trackAddToCart(product, 1);
     setCart((current) => {
       const existing = current.find((line) => line.product.id === product.id);
       return existing
@@ -196,6 +205,13 @@ function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
   const product = findProduct(slug);
   const [quantity, setQuantity] = useState(1);
+
+  useEffect(() => {
+    if (product) {
+      trackViewContent(product);
+    }
+  }, [product?.id]);
+
   if (!product) return <NotFound />;
   return (
     <div id="product-main" className="mx-auto max-w-[1440px] px-4 py-4 sm:px-5 sm:py-6 md:py-12">
@@ -352,6 +368,12 @@ function CartPage() {
   const { cart: lines, updateQuantity: onQuantity, removeLine: onRemove } = useStore();
   const total = lines.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
 
+  useEffect(() => {
+    if (lines.length > 0) {
+      trackInitiateCheckout(lines, total);
+    }
+  }, [lines.length]);
+
   return (
     <div className="mx-auto max-w-[1200px] px-5 py-8 md:py-12">
       <Breadcrumbs items={[{ label: 'Panier' }]} />
@@ -425,7 +447,30 @@ function CartPage() {
 }
 
 function Router() {
-  return <Shell><Switch><Route path="/" component={Home} /><Route path="/shop"><CatalogPage mode="shop" /></Route><Route path="/promotions"><CatalogPage mode="promotions" /></Route><Route path="/category/:category" component={CategoryPage} /><Route path="/brand/:brand" component={BrandPage} /><Route path="/profession/:profession" component={ProfessionPage} /><Route path="/product/:slug" component={ProductPage} /><Route path="/search" component={SearchPage} /><Route path="/cart" component={CartPage} /><Route path="/brands"><CollectionsPage type="brands" /></Route><Route path="/professions"><CollectionsPage type="professions" /></Route><Route component={NotFound} /></Switch></Shell>;
+  return (
+    <Switch>
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/admin" component={Dashboard} />
+      <Route>
+        <Shell>
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/shop"><CatalogPage mode="shop" /></Route>
+            <Route path="/promotions"><CatalogPage mode="promotions" /></Route>
+            <Route path="/category/:category" component={CategoryPage} />
+            <Route path="/brand/:brand" component={BrandPage} />
+            <Route path="/profession/:profession" component={ProfessionPage} />
+            <Route path="/product/:slug" component={ProductPage} />
+            <Route path="/search" component={SearchPage} />
+            <Route path="/cart" component={CartPage} />
+            <Route path="/brands"><CollectionsPage type="brands" /></Route>
+            <Route path="/professions"><CollectionsPage type="professions" /></Route>
+            <Route component={NotFound} />
+          </Switch>
+        </Shell>
+      </Route>
+    </Switch>
+  );
 }
 
 function RoutedErrorBoundary({ children }: { children: React.ReactNode }) {

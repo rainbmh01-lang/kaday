@@ -181,7 +181,7 @@ export function Header({ cartCount, favoriteCount, onOpenSearch }: { cartCount?:
           <button onClick={onOpenSearch} className="flex min-w-0 flex-1 items-center justify-start gap-1.5 sm:gap-2 rounded-md border border-[var(--ed-line)] bg-white px-2.5 sm:px-3 py-2 sm:py-2.5 text-slate-500 hover:border-slate-400 md:ml-auto md:max-w-[420px]" data-testid="button-open-search">
             <Search size={16} className="shrink-0 text-slate-400 sm:size-[17px]" /><span className="truncate text-xs sm:text-sm font-medium">ابحث عن المنتج</span><span className="ed-mono ml-auto hidden text-[9px] text-slate-400 md:block">⌘ K</span>
           </button>
-          <button onClick={() => setMenuOpen(true)} className="hidden h-10 w-10 place-items-center text-[var(--ed-ink)] hover:text-[var(--ed-rust)] md:grid" data-testid="button-account"><UserRound size={20} /></button>
+          <Link href="/dashboard" className="hidden h-10 w-10 place-items-center text-[var(--ed-ink)] hover:text-[var(--ed-rust)] md:grid" title="Tableau de bord Ventes & Marketing" data-testid="button-account"><UserRound size={20} /></Link>
           {favoriteCount > 0 && <span className="sr-only">{favoriteCount} favoris</span>}
         </div>
         {menuOpen && (
@@ -192,6 +192,7 @@ export function Header({ cartCount, favoriteCount, onOpenSearch }: { cartCount?:
                 ['/promotions', 'Promotions'],
                 ['/brands', 'Marques'],
                 ['/professions', 'Par métier'],
+                ['/dashboard', 'Tableau de bord (Admin)'],
               ].map(([href, label]) => <Link key={href} href={href} onClick={() => setMenuOpen(false)} className="border-b border-slate-100 py-3 text-sm font-semibold" data-testid={`link-mobile-${label}`}>{label}</Link>)}
             </nav>
           </div>
@@ -212,7 +213,7 @@ export function Footer() {
             <div className="mt-6 flex items-center gap-2 text-xs text-white/55"><MapPin size={15} className="text-[var(--ed-yellow)]" /> Alger · Oran · Constantine · Toute l’Algérie</div>
           </div>
           <div><p className="ed-mono mb-4 text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">Acheter</p><div className="grid gap-2 text-sm text-white/70"><Link href="/shop" className="hover:text-white" data-testid="link-footer-shop">Tous les produits</Link><Link href="/promotions" className="hover:text-white" data-testid="link-footer-promotions">Promotions</Link><Link href="/brands" className="hover:text-white" data-testid="link-footer-brands">Nos marques</Link><Link href="/professions" className="hover:text-white" data-testid="link-footer-professions">Par métier</Link></div></div>
-          <div><p className="ed-mono mb-4 text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">Besoin d’aide</p><div className="grid gap-2 text-sm text-white/70"><a href="tel:0560000000" className="text-left hover:text-white" data-testid="link-footer-contact">Nous contacter</a><a href="mailto:service@edengroupes.com" className="text-left hover:text-white" data-testid="link-footer-delivery">Livraison & retours</a><a href="mailto:service@edengroupes.com" className="text-left hover:text-white" data-testid="link-footer-payment">Paiement à la livraison</a></div></div>
+          <div><p className="ed-mono mb-4 text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">Besoin d’aide</p><div className="grid gap-2 text-sm text-white/70"><a href="tel:0560000000" className="text-left hover:text-white" data-testid="link-footer-contact">Nous contacter</a><a href="mailto:service@edengroupes.com" className="text-left hover:text-white" data-testid="link-footer-delivery">Livraison & retours</a><a href="mailto:service@edengroupes.com" className="text-left hover:text-white" data-testid="link-footer-payment">Paiement à la livraison</a><Link href="/dashboard" className="text-left hover:text-[var(--ed-yellow)] font-bold text-white/90" data-testid="link-footer-dashboard">Tableau de bord (Admin)</Link></div></div>
           <div><p className="ed-mono mb-4 text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">Kadya DZ pro</p><p className="text-sm leading-6 text-white/70">Un besoin en quantité ? Écrivez à notre équipe pour un devis chantier ou atelier.</p><a href="mailto:pro@kadyadz.com" className="ed-button mt-5 inline-flex items-center gap-2 bg-[var(--ed-yellow)] px-4 py-3 text-sm font-bold text-[var(--ed-ink)] hover:bg-white" data-testid="link-pro-contact">Demander un devis <ArrowRight size={15} /></a></div>
         </div>
         <div className="mt-12 flex flex-col justify-between gap-3 border-t border-white/15 pt-5 text-xs text-white/40 md:flex-row"><span>© 2024 KADYA DZ · La sélection technique.</span><span>Mentions légales · Conditions de vente</span></div>
