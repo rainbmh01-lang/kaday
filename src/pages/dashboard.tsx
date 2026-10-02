@@ -50,6 +50,7 @@ import {
   exportOrdersToCSV,
   syncOrderToGoogleSheet,
   syncAllUnsynced,
+  fetchLiveSheetOrders,
   getSheetSettings,
   saveSheetSettings,
   DEFAULT_SHEET_URL,
@@ -85,6 +86,7 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('Tous');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isPulling, setIsPulling] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const [sheetSettings, setLocalSheetSettings] = useState(getSheetSettings());
   const [webhookInput, setWebhookInput] = useState(sheetSettings.webhookUrl);
@@ -95,9 +97,11 @@ export default function Dashboard() {
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [newWilaya, setNewWilaya] = useState('16 - Alger');
+  const [newCommune, setNewCommune] = useState('Alger Centre');
   const [newDeliveryType, setNewDeliveryType] = useState<'desk' | 'home'>('desk');
   const [newProductName, setNewProductName] = useState('Perceuse-Visseuse CROWN 20V');
-  const [newTotal, setNewTotal] = useState(13000);
+  const [newTotal, setNewTotal] = useState(13100);
+  const [newNotes, setNewNotes] = useState('Commande manuelle admin');
 
   // Marketing simulator state
   const [testEventStatus, setTestEventStatus] = useState<string | null>(null);
@@ -225,18 +229,38 @@ export default function Dashboard() {
     setTimeout(() => setSyncFeedback(null), 3000);
   };
 
+  const handlePullFromSheet = async () => {
+    setIsPulling(true);
+    setSyncFeedback(null);
+    try {
+      const liveOrders = await fetchLiveSheetOrders();
+      setOrders(liveOrders);
+      setSyncFeedback(`✅ ${liveOrders.length} commande(s) synchronisée(s) en direct depuis Google Sheet !`);
+    } catch {
+      setSyncFeedback('⚠️ Impossible de récupérer les données Google Sheet.');
+    } finally {
+      setIsPulling(false);
+      setTimeout(() => setSyncFeedback(null), 5000);
+    }
+  };
+
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientName || !newClientPhone) return;
+    const shipping = newDeliveryType === 'desk' ? 600 : 800;
     saveOrder({
       fullName: newClientName,
       phone: newClientPhone,
       wilaya: newWilaya,
+      commune: newCommune,
       deliveryType: newDeliveryType,
       productName: newProductName,
       quantity: 1,
+      productPrice: Number(newTotal) - shipping,
+      shippingFee: shipping,
       total: Number(newTotal),
       status: 'Confirmé',
+      notes: newNotes,
     });
     setShowAddModal(false);
     setNewClientName('');
@@ -275,16 +299,20 @@ export default function Dashboard() {
     try {
       const ok = await syncOrderToGoogleSheet(
         {
-          id: `KD-TEST-${Math.floor(100 + Math.random() * 900)}`,
+          id: `#${Math.floor(1000 + Math.random() * 9000)}`,
           date: new Date().toISOString(),
           fullName: 'Test Synchronisation Kadya DZ',
           phone: '0550000000',
           wilaya: '16 - Alger',
-          deliveryType: 'home',
-          productName: 'Ligne de test automatique',
+          commune: 'Alger Centre',
+          deliveryType: 'desk',
+          productName: 'Perceuse-Visseuse CROWN 20V (Test)',
           quantity: 1,
-          total: 1000,
+          productPrice: 12500,
+          shippingFee: 600,
+          total: 13100,
           status: 'Nouveau',
+          notes: 'Test de connexion automatique',
         },
         url
       );
@@ -301,30 +329,44 @@ export default function Dashboard() {
   };
 
   const appsScriptCode = `function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.tryLock(10000);
   try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    // Auto-create headers if sheet is empty
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getActiveSheet();
+    var headers = [
+      "N° Commande / رقم الطلب", "Date / التاريخ", "Nom & Prénom / الاسم واللقب",
+      "Téléphone / رقم الهاتف", "الولاية", "البلدية / العنوان",
+      "Type de livraison / نوع التوصيل", "Produit / المنتج", "Quantité / الكمية",
+      "سعر المنتج", "تكلفة الشحن", "المجموع الإجمالي", "Statut / حالة الطلب", "Remarques / ملاحظات"
+    ];
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(["Date", "ID Commande", "Nom Client", "Téléphone", "Wilaya", "Mode Livraison", "Produit", "Quantité", "Total (DZD)", "Statut"]);
+      sheet.appendRow(headers);
     }
     var data = JSON.parse(e.postData.contents);
+    var lastRow = sheet.getLastRow();
+    var orderId = data.orderId || ("#" + (1000 + Math.max(lastRow, 1)));
     sheet.appendRow([
-      data.date || new Date().toLocaleString("fr-FR"),
-      data.orderId || "",
-      data.fullName || "",
+      orderId,
+      data.date || Utilities.formatDate(new Date(), "Africa/Algiers", "yyyy-MM-dd HH:mm"),
+      data.fullName || "Client",
       "'" + (data.phone || ""),
       data.wilaya || "",
-      data.deliveryType || "",
-      data.productName || "",
+      data.commune || "",
+      data.deliveryType || "المكتب (Bureau)",
+      data.productName || "Perceuse-Visseuse CROWN 20V",
       data.quantity || 1,
-      data.total || 0,
-      data.status || "Nouveau"
+      data.productPrice || "12 500,00 DA",
+      data.shippingFee || "600,00 DA",
+      data.total || "13 100,00 DA",
+      data.status || "Nouveau (جديد)",
+      data.notes || "Commande boutique web"
     ]);
-    return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", orderId: orderId })).setMimeType(ContentService.MimeType.JSON);
   } catch(err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
   }
 }`;
 
@@ -493,27 +535,39 @@ export default function Dashboard() {
           </div>
 
           {activeTab === 'orders' && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => exportOrdersToCSV(filteredOrders)}
-                className="flex items-center gap-1.5 rounded-xl border border-[var(--ed-line)] bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:border-slate-400"
+                onClick={handlePullFromSheet}
+                disabled={isPulling}
+                title="Mettre à jour directement depuis votre Google Sheet en ligne"
+                className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-xs font-bold text-blue-800 shadow-xs hover:bg-blue-100 disabled:opacity-50 cursor-pointer"
               >
-                <Download size={14} />
-                <span>Exporter CSV</span>
+                <RefreshCw size={14} className={isPulling ? 'animate-spin' : ''} />
+                <span>{isPulling ? 'Chargement...' : 'Depuis Google Sheet'}</span>
               </button>
 
               <button
                 onClick={handleSyncAll}
                 disabled={isSyncing}
-                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+                title="Envoyer les commandes non synchronisées vers Google Sheet"
+                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
               >
                 <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
                 <span>{isSyncing ? 'Sync...' : 'Sync Sheet'}</span>
               </button>
 
               <button
+                onClick={() => exportOrdersToCSV(filteredOrders)}
+                title="Télécharger le fichier CSV officiel (14 colonnes bilingues)"
+                className="flex items-center gap-1.5 rounded-xl border border-[var(--ed-line)] bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:border-slate-400 cursor-pointer"
+              >
+                <Download size={14} />
+                <span>Exporter CSV (14 Col)</span>
+              </button>
+
+              <button
                 onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-1.5 rounded-xl bg-[var(--ed-yellow)] px-3.5 py-2 text-xs font-black text-[var(--ed-ink)] shadow-xs hover:bg-yellow-400"
+                className="flex items-center gap-1.5 rounded-xl bg-[var(--ed-yellow)] px-3.5 py-2 text-xs font-black text-[var(--ed-ink)] shadow-xs hover:bg-yellow-400 cursor-pointer"
               >
                 <Plus size={15} />
                 <span>Ajouter</span>
@@ -598,19 +652,21 @@ export default function Dashboard() {
                 <table className="w-full text-left text-xs sm:text-sm">
                   <thead className="border-b border-[var(--ed-line)] bg-[#faf9f6] text-[11px] font-bold uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-4 py-3.5">ID / Date</th>
+                      <th className="px-4 py-3.5">N° Commande / Date</th>
                       <th className="px-4 py-3.5">Client & Contact</th>
-                      <th className="px-4 py-3.5">Wilaya & Livraison</th>
-                      <th className="px-4 py-3.5">Produit</th>
+                      <th className="px-4 py-3.5">Wilaya & Commune</th>
+                      <th className="px-4 py-3.5">Mode</th>
+                      <th className="px-4 py-3.5">Produit & Qté</th>
                       <th className="px-4 py-3.5">Total DZD</th>
                       <th className="px-4 py-3.5">Statut</th>
+                      <th className="px-4 py-3.5">Remarques</th>
                       <th className="px-4 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--ed-line)]">
                     {filteredOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-400">
+                        <td colSpan={9} className="py-12 text-center text-slate-400">
                           Aucune commande trouvée.
                         </td>
                       </tr>
@@ -648,16 +704,25 @@ export default function Dashboard() {
                               </div>
                             </td>
 
-                            {/* Wilaya & Mode */}
+                            {/* Wilaya & Commune */}
                             <td className="px-4 py-3.5 align-middle">
                               <p className="font-semibold text-slate-800">{order.wilaya}</p>
-                              <span className="inline-block mt-0.5 text-[11px] text-slate-500">
-                                {order.deliveryType === 'desk' ? '🏢 Bureau (Desk)' : '🏠 Domicile'}
+                              {order.commune && (
+                                <span className="inline-block mt-0.5 text-[11px] text-slate-500">
+                                  {order.commune}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Delivery Mode */}
+                            <td className="px-4 py-3.5 align-middle">
+                              <span className="inline-block rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                {order.deliveryType === 'desk' ? '🏢 Bureau' : '🏠 Domicile'}
                               </span>
                             </td>
 
-                            {/* Product */}
-                            <td className="max-w-[220px] px-4 py-3.5 align-middle">
+                            {/* Product & Quantity */}
+                            <td className="max-w-[200px] px-4 py-3.5 align-middle">
                               <p className="truncate font-medium text-slate-800">{order.productName}</p>
                               <span className="text-[11px] text-slate-400">Qté: {order.quantity}</span>
                             </td>
@@ -682,6 +747,11 @@ export default function Dashboard() {
                                 <option value="Livré">Livré</option>
                                 <option value="Annulé">Annulé</option>
                               </select>
+                            </td>
+
+                            {/* Notes / Remarques */}
+                            <td className="max-w-[150px] px-4 py-3.5 align-middle text-xs text-slate-500 truncate">
+                              {order.notes || '—'}
                             </td>
 
                             {/* Actions */}
@@ -907,26 +977,36 @@ export default function Dashboard() {
               <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                    Feuille Google Sheet Connectée
+                    Feuille Google Sheet Connectée (14 Colonnes Bilingues)
                   </span>
                   <h2 className="ed-display mt-2 text-2xl font-black">
-                    Spreadsheet Directe
+                    Spreadsheet Officielle & Synchronisation
                   </h2>
                   <p className="mt-1 font-mono text-xs text-slate-500 break-all">
                     {DEFAULT_SHEET_URL}
                   </p>
                 </div>
 
-                <a
-                  href={DEFAULT_SHEET_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-xs hover:bg-emerald-700"
-                >
-                  <FileSpreadsheet size={18} />
-                  <span>Ouvrir Google Sheet</span>
-                  <ExternalLink size={15} />
-                </a>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={handlePullFromSheet}
+                    disabled={isPulling}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw size={15} className={isPulling ? 'animate-spin' : ''} />
+                    <span>{isPulling ? 'Synchronisation...' : 'Importer depuis Google Sheet'}</span>
+                  </button>
+                  <a
+                    href={DEFAULT_SHEET_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700"
+                  >
+                    <FileSpreadsheet size={15} />
+                    <span>Ouvrir Google Sheet</span>
+                    <ExternalLink size={13} />
+                  </a>
+                </div>
               </div>
             </div>
 
@@ -938,15 +1018,18 @@ export default function Dashboard() {
                     Dossier Google Drive Connecté (G:\Mon Drive)
                   </span>
                   <h2 className="ed-display mt-2 text-2xl font-black">
-                    Fichiers Déjà Créés dans Votre Drive
+                    Fichiers Prêts et Synchronisés dans Votre Drive
                   </h2>
                   <p className="mt-1 text-xs text-slate-500">
-                    Trois fichiers complets ont été générés et placés directement dans votre dossier Google Drive :
+                    Tous les fichiers avec configuration complète (14 colonnes bilingues) sont créés dans votre Google Drive local :
                   </p>
-                  <ul className="mt-2 space-y-1 text-xs font-mono text-slate-700">
-                    <li>📊 <strong>G:\Mon Drive\KADYA_DZ_COMMANDES_OFFICIEL.xlsx</strong> (Classeur Excel structuré avec colonnes, couleurs et filtres)</li>
-                    <li>📄 <strong>G:\Mon Drive\KADYA DZ COMMANDE.csv</strong> (Fichier CSV avec encodage UTF-8 et données commandes)</li>
-                    <li>⚡ <strong>G:\Mon Drive\CODE_APPS_SCRIPT_PRET.js</strong> (Script de synchronisation prêt à l'emploi)</li>
+                  <ul className="mt-3 space-y-1.5 text-xs font-mono text-slate-700">
+                    <li>📊 <strong>G:\Mon Drive\KADYA_DZ_COMMANDES_ET_VENTES_PRO.xlsx</strong> (Classeur Maître 3 onglets : Commandes, Analytics & Paramètres)</li>
+                    <li>⚡ <strong>G:\Mon Drive\Kadya_Admin_Commandes.html</strong> (Application d'administration locale autonome pour PC)</li>
+                    <li>🚀 <strong>G:\Mon Drive\LANCER_GESTION_COMMANDES.bat</strong> (Lanceur rapide en 1 clic pour Windows)</li>
+                    <li>📊 <strong>G:\Mon Drive\KADYA_DZ_COMMANDES_OFFICIEL.xlsx</strong> (Classeur Excel structuré avec les 14 colonnes)</li>
+                    <li>📄 <strong>G:\Mon Drive\KADYA DZ COMMANDE.csv</strong> (Fichier CSV UTF-8 BOM avec les 14 colonnes)</li>
+                    <li>⚡ <strong>G:\Mon Drive\CODE_APPS_SCRIPT_PRET.js</strong> (Script de synchronisation 14 colonnes)</li>
                   </ul>
                 </div>
 
@@ -1083,16 +1166,28 @@ export default function Dashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700">Livraison</label>
-                  <select
-                    value={newDeliveryType}
-                    onChange={(e) => setNewDeliveryType(e.target.value as any)}
-                    className="mt-1 w-full rounded-xl border border-[var(--ed-line)] bg-[#faf9f6] p-2.5 text-sm outline-none focus:border-[var(--ed-ink)] cursor-pointer"
-                  >
-                    <option value="desk">Bureau (Stop Desk)</option>
-                    <option value="home">Domicile</option>
-                  </select>
+                  <label className="block text-xs font-bold text-slate-700">Commune / Adresse</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCommune}
+                    onChange={(e) => setNewCommune(e.target.value)}
+                    placeholder="Alger Centre"
+                    className="mt-1 w-full rounded-xl border border-[var(--ed-line)] bg-[#faf9f6] p-2.5 text-sm outline-none focus:border-[var(--ed-ink)]"
+                  />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700">Mode de livraison</label>
+                <select
+                  value={newDeliveryType}
+                  onChange={(e) => setNewDeliveryType(e.target.value as any)}
+                  className="mt-1 w-full rounded-xl border border-[var(--ed-line)] bg-[#faf9f6] p-2.5 text-sm outline-none focus:border-[var(--ed-ink)] cursor-pointer"
+                >
+                  <option value="desk">Bureau (Stop Desk)</option>
+                  <option value="home">Domicile</option>
+                </select>
               </div>
 
               <div>
@@ -1106,15 +1201,27 @@ export default function Dashboard() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700">Total à payer (DZD)</label>
-                <input
-                  type="number"
-                  required
-                  value={newTotal}
-                  onChange={(e) => setNewTotal(Number(e.target.value))}
-                  className="mt-1 w-full rounded-xl border border-[var(--ed-line)] bg-[#faf9f6] p-2.5 text-sm outline-none focus:border-[var(--ed-ink)] font-bold text-[var(--ed-rust)]"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700">Total à payer (DZD)</label>
+                  <input
+                    type="number"
+                    required
+                    value={newTotal}
+                    onChange={(e) => setNewTotal(Number(e.target.value))}
+                    className="mt-1 w-full rounded-xl border border-[var(--ed-line)] bg-[#faf9f6] p-2.5 text-sm outline-none focus:border-[var(--ed-ink)] font-bold text-[var(--ed-rust)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700">Remarques / Notes</label>
+                  <input
+                    type="text"
+                    value={newNotes}
+                    onChange={(e) => setNewNotes(e.target.value)}
+                    placeholder="Ex: Confirmer après 17h"
+                    className="mt-1 w-full rounded-xl border border-[var(--ed-line)] bg-[#faf9f6] p-2.5 text-sm outline-none focus:border-[var(--ed-ink)]"
+                  />
+                </div>
               </div>
 
               <div className="mt-6 flex justify-end gap-2">

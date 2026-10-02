@@ -97,15 +97,19 @@ export function LeadForm({
     setPhoneError('');
     setSubmitted(true);
 
-    // Save order locally and sync to Google Sheet
+    // Save order locally and sync to Google Sheet (14 columns)
     const newOrder = saveOrder({
       fullName: fullName.trim(),
       phone: phone.trim(),
-      wilaya: `${selectedWilaya.code} - ${selectedWilaya.nameAr}`,
+      wilaya: `${selectedWilaya.code} - ${selectedWilaya.nameAr} (${selectedWilaya.nameFr})`,
+      commune: selectedWilaya.nameFr || selectedWilaya.nameAr,
       deliveryType,
-      productName: productName || 'Commande KADYA DZ',
+      productName: productName || 'Perceuse-Visseuse CROWN 20V CT21055LM',
       quantity,
+      productPrice: subtotal,
+      shippingFee: shippingPrice,
       total,
+      notes: 'Boutique web - Paiement à la livraison (COD)',
     });
 
     // Track Meta Purchase & Lead events (Browser Pixel + CAPI)
