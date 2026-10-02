@@ -226,18 +226,7 @@ function ProductPage() {
             <LeadForm productName={product.name} unitPrice={product.price} initialQuantity={1} />
           </div>
 
-          <div className="mt-7 grid gap-3 sm:grid-cols-2">
-            <div className="border border-[var(--ed-line)] bg-white p-4">
-              <Truck size={18} className="text-[var(--ed-rust)]" />
-              <p className="mt-3 text-sm font-bold">Livraison à domicile</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">Partout en Algérie, délai confirmé à la commande.</p>
-            </div>
-            <div className="border border-[var(--ed-line)] bg-white p-4">
-              <Banknote size={18} className="text-[var(--ed-rust)]" />
-              <p className="mt-3 text-sm font-bold">Paiement à la livraison</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">Vous payez au moment de recevoir votre colis.</p>
-            </div>
-          </div>
+
         </div>
       </div>
 
