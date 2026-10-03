@@ -28,6 +28,9 @@ export const DEFAULT_SHEET_URL =
 export const DEFAULT_SHEET_EXPORT_URL =
   'https://docs.google.com/spreadsheets/d/1yT77pxncTVPdq2RewH4CZv0oFwbp_NuejTLnUxjXV90/export?format=csv';
 
+export const DEFAULT_WEBHOOK_URL =
+  'https://script.google.com/macros/s/AKfycbzCo0T9FxQel0Vxklx2AB_sE5ymyLlC7WxQoC9YGbQVVi7MSI46EwFfgGzniMGQcHT7/exec';
+
 const INITIAL_ORDERS: Order[] = [
   {
     id: '#1001',
@@ -191,18 +194,18 @@ export function deleteOrder(id: string): void {
 
 export function getSheetSettings(): { sheetUrl: string; webhookUrl: string } {
   if (typeof window === 'undefined') {
-    return { sheetUrl: DEFAULT_SHEET_URL, webhookUrl: '' };
+    return { sheetUrl: DEFAULT_SHEET_URL, webhookUrl: DEFAULT_WEBHOOK_URL };
   }
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return { sheetUrl: DEFAULT_SHEET_URL, webhookUrl: '' };
+    if (!raw) return { sheetUrl: DEFAULT_SHEET_URL, webhookUrl: DEFAULT_WEBHOOK_URL };
     const parsed = JSON.parse(raw);
     return {
       sheetUrl: parsed.sheetUrl || DEFAULT_SHEET_URL,
-      webhookUrl: parsed.webhookUrl || '',
+      webhookUrl: parsed.webhookUrl || DEFAULT_WEBHOOK_URL,
     };
   } catch {
-    return { sheetUrl: DEFAULT_SHEET_URL, webhookUrl: '' };
+    return { sheetUrl: DEFAULT_SHEET_URL, webhookUrl: DEFAULT_WEBHOOK_URL };
   }
 }
 

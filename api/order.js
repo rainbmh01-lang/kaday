@@ -53,7 +53,10 @@ export default async function handler(req, res) {
       webhookUrl,
     } = body || {};
 
-    const targetWebhook = webhookUrl || process.env.GOOGLE_SHEET_WEBHOOK_URL;
+    const targetWebhook =
+      webhookUrl ||
+      process.env.GOOGLE_SHEET_WEBHOOK_URL ||
+      'https://script.google.com/macros/s/AKfycbzCo0T9FxQel0Vxklx2AB_sE5ymyLlC7WxQoC9YGbQVVi7MSI46EwFfgGzniMGQcHT7/exec';
 
     let sheetResponse = null;
     if (targetWebhook) {

@@ -328,24 +328,75 @@ export default function Dashboard() {
     }
   };
 
-  const appsScriptCode = `function doPost(e) {
+  const appsScriptCode = `var HEADERS = [
+  "N° Commande / رقم الطلب", "Date / التاريخ", "Nom & Prénom / الاسم واللقب",
+  "Téléphone / رقم الهاتف", "الولاية", "البلدية / العنوان",
+  "Type de livraison / نوع التوصيل", "Produit / المنتج", "Quantité / الكمية",
+  "سعر المنتج", "تكلفة الشحن", "المجموع الإجمالي", "Statut / حالة الطلب", "Remarques / ملاحظات"
+];
+
+function doGet(e) {
   var lock = LockService.getScriptLock();
-  lock.tryLock(10000);
+  lock.tryLock(15000);
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getActiveSheet();
-    var headers = [
-      "N° Commande / رقم الطلب", "Date / التاريخ", "Nom & Prénom / الاسم واللقب",
-      "Téléphone / رقم الهاتف", "الولاية", "البلدية / العنوان",
-      "Type de livraison / نوع التوصيل", "Produit / المنتج", "Quantité / الكمية",
-      "سعر المنتج", "تكلفة الشحن", "المجموع الإجمالي", "Statut / حالة الطلب", "Remarques / ملاحظات"
-    ];
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow(headers);
+    var rows = sheet.getDataRange().getValues();
+    if (rows.length < 2) return ContentService.createTextOutput(JSON.stringify({ success: true, total: 0, orders: [] })).setMimeType(ContentService.MimeType.JSON);
+    var orders = [];
+    for (var i = 1; i < rows.length; i++) {
+      var r = rows[i];
+      if (!r[0]) continue;
+      orders.push({
+        id: String(r[0] || "").trim(),
+        date: String(r[1] || "").trim(),
+        fullName: String(r[2] || "").trim(),
+        phone: String(r[3] || "").replace(/^'/, "").trim(),
+        wilaya: String(r[4] || "").trim(),
+        commune: String(r[5] || "").trim(),
+        deliveryType: (String(r[6] || "").indexOf("Bureau") !== -1 || String(r[6] || "").indexOf("المكتب") !== -1) ? "desk" : "home",
+        productName: String(r[7] || "").trim(),
+        quantity: parseInt(r[8], 10) || 1,
+        total: parseInt(String(r[11] || "").replace(/[^\\d]/g, ""), 10) || 0,
+        status: String(r[12] || "Nouveau").indexOf("Confirm") !== -1 ? "Confirmé" : String(r[12] || "").indexOf("livraison") !== -1 ? "En livraison" : String(r[12] || "").indexOf("Livr") !== -1 ? "Livré" : String(r[12] || "").indexOf("Annul") !== -1 ? "Annulé" : "Nouveau",
+        notes: String(r[13] || "").trim()
+      });
     }
+    return ContentService.createTextOutput(JSON.stringify({ success: true, total: orders.length, orders: orders })).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.tryLock(15000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getActiveSheet();
+    if (sheet.getLastRow() === 0) sheet.appendRow(HEADERS);
+
     var data = JSON.parse(e.postData.contents);
+    var action = data.action || "add_order";
+
+    if (action === "update_order") {
+      var targetId = String(data.id || data.orderId || "").trim();
+      var values = sheet.getDataRange().getValues();
+      for (var i = 1; i < values.length; i++) {
+        if (String(values[i][0]).trim() === targetId) {
+          if (data.status !== undefined) sheet.getRange(i + 1, 13).setValue(String(data.status).trim());
+          if (data.commune !== undefined) sheet.getRange(i + 1, 6).setValue(String(data.commune).trim());
+          if (data.notes !== undefined) sheet.getRange(i + 1, 14).setValue(String(data.notes).trim());
+          return ContentService.createTextOutput(JSON.stringify({ success: true, id: targetId })).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: false, message: "Not found" })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     var lastRow = sheet.getLastRow();
-    var orderId = data.orderId || ("#" + (1000 + Math.max(lastRow, 1)));
+    var orderId = data.orderId || data.id || ("#" + (1000 + Math.max(lastRow, 1)));
     sheet.appendRow([
       orderId,
       data.date || Utilities.formatDate(new Date(), "Africa/Algiers", "yyyy-MM-dd HH:mm"),
