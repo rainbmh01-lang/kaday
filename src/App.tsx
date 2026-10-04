@@ -44,7 +44,6 @@ import {
   ProductVisual,
   SearchOverlay,
   SectionHeading,
-  TrustStrip,
   type CartLine,
 } from '@/components/storefront';
 import { LeadForm } from '@/components/lead-form';
@@ -149,7 +148,6 @@ function Home() {
       </div>
       <div className="absolute bottom-5 right-5 hidden items-center gap-2 md:flex"><button onClick={() => setCarousel(Math.max(0, carousel - 1))} className="grid h-9 w-9 place-items-center border border-white/30 hover:border-[var(--ed-yellow)] hover:text-[var(--ed-yellow)]" data-testid="button-hero-previous"><ChevronLeft size={17} /></button><button onClick={() => setCarousel(Math.min(2, carousel + 1))} className="grid h-9 w-9 place-items-center border border-white/30 hover:border-[var(--ed-yellow)] hover:text-[var(--ed-yellow)]" data-testid="button-hero-next"><ChevronRight size={17} /></button></div>
     </section>
-    <TrustStrip />
     <section className="mx-auto max-w-[1440px] px-5 py-16 md:py-20">
       <SectionHeading eyebrow="Trouvez votre terrain" title="Une entrée par besoin." sub="Pas besoin de connaître la référence. Commencez par votre métier, votre univers ou votre prochain chantier." action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)]" data-testid="link-categories-all">Toutes les catégories <ArrowRight size={16} /></Link>} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">{categories.slice(0, 8).map((category) => <CategoryTile key={category.slug} category={category} />)}</div>
