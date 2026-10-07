@@ -271,37 +271,40 @@ export function CategoryTile({ category }: { category: CatalogLink & { imageUrl?
       className="ed-card group relative min-h-[195px] overflow-hidden border border-[var(--ed-line)] bg-white p-4 sm:p-5 flex flex-col justify-between"
       data-testid={`link-category-${category.slug}`}
     >
-      {/* Top row: Icon on left, Photo / Accent on right */}
-      <div className="flex items-start justify-between relative z-10">
-        <span className="grid h-10 w-10 sm:h-11 sm:w-11 place-items-center bg-[var(--ed-ink)] text-[var(--ed-yellow)] shrink-0">
+      {/* Background Image with elegant protective gradient overlay */}
+      {catImage ? (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <img
+            src={catImage}
+            alt={category.label}
+            className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+          />
+          {/* Subtle white protective gradient: keeps photo visible while keeping dark text 100% readable */}
+          <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-white/50 group-hover:from-white/85 group-hover:via-white/70 group-hover:to-white/40 transition-colors" />
+        </div>
+      ) : (
+        <div
+          className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-30 pointer-events-none"
+          style={{ background: category.color || '#f0b83d' }}
+        />
+      )}
+
+      {/* Top row: Icon */}
+      <div className="relative z-10 flex items-start justify-between">
+        <span className="grid h-10 w-10 sm:h-11 sm:w-11 place-items-center bg-[var(--ed-ink)] text-[var(--ed-yellow)] shadow-xs">
           <Icon name={category.icon || 'box'} size={20} />
         </span>
-
-        {catImage ? (
-          <div className="h-14 w-14 sm:h-16 sm:w-16 rounded overflow-hidden bg-slate-50 border border-slate-200/80 p-1 shrink-0 flex items-center justify-center transition-transform group-hover:scale-105">
-            <img
-              src={catImage}
-              alt={category.label}
-              className="h-full w-full object-contain"
-            />
-          </div>
-        ) : (
-          <div
-            className="h-12 w-12 rounded-full opacity-25 shrink-0"
-            style={{ background: category.color || '#f0b83d' }}
-          />
-        )}
       </div>
 
-      {/* Bottom Content: Title, description, and link - clean & fully readable */}
-      <div className="relative z-10 mt-3 sm:mt-4">
-        <h3 className="ed-display text-lg sm:text-2xl font-bold leading-tight text-[var(--ed-ink)] line-clamp-2">
+      {/* Bottom Content: Title, description, and link */}
+      <div className="relative z-10 mt-4">
+        <h3 className="ed-display text-xl sm:text-2xl font-bold leading-tight text-[var(--ed-ink)] line-clamp-2 drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)]">
           {category.label}
         </h3>
-        <p className="mt-1 text-xs text-slate-500 line-clamp-1">
+        <p className="mt-1.5 text-xs text-slate-700 font-semibold line-clamp-1 drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)]">
           {category.sub}
         </p>
-        <span className="ed-mono mt-3 block text-[10px] uppercase tracking-[.15em] text-[var(--ed-rust)] font-semibold">
+        <span className="ed-mono mt-3.5 block text-[10px] uppercase tracking-[.15em] text-[var(--ed-rust)] font-black">
           {category.count || 'Découvrir'} <ArrowRight className="ml-1 inline" size={12} />
         </span>
       </div>
