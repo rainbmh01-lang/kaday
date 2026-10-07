@@ -159,7 +159,7 @@ export default async function handler(req, res) {
       eventPayload.test_event_code = finalTestCode;
     }
 
-    const metaUrl = `https://graph.facebook.com/v21.0/${pixelId}/events?access_token=${encodeURIComponent(accessToken)}`;
+    const metaUrl = `https://graph.facebook.com/v25.0/${pixelId}/events?access_token=${encodeURIComponent(accessToken)}`;
     const metaResponse = await fetch(metaUrl, {
       method: 'POST',
       headers: {

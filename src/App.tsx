@@ -61,6 +61,8 @@ import {
 } from '@/data/store';
 import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
+import StoreAdmin from '@/pages/store-admin';
+import { getDbCategories } from '@/lib/store-data';
 import heroWorkshop from '@/assets/edengroupes-workshop-hero.jpg';
 import {
   trackPageView,
@@ -130,6 +132,28 @@ function Home() {
   const [carousel, setCarousel] = useState(0);
   const [cartFlash, setCartFlash] = useState<Product | null>(null);
   const { favorites, addToCart, toggleFavorite } = useStore();
+  const [liveCategories, setLiveCategories] = useState<any[]>(categories);
+
+  useEffect(() => {
+    getDbCategories().then((cats) => {
+      if (cats && cats.length > 0) {
+        setLiveCategories(
+          cats
+            .filter((c) => c.is_active)
+            .map((c) => ({
+              slug: c.slug,
+              label: c.name,
+              sub: c.description || '',
+              count: 'Découvrir',
+              color: '#f0b83d',
+              icon: 'drill',
+              image_url: c.image_url,
+            }))
+        );
+      }
+    });
+  }, []);
+
   const featured = products.slice(0, 8);
   const add = (product: Product) => { addToCart(product); setCartFlash(product); window.setTimeout(() => setCartFlash(null), 1200); };
   return <div>
@@ -150,7 +174,7 @@ function Home() {
     </section>
     <section className="mx-auto max-w-[1440px] px-5 py-16 md:py-20">
       <SectionHeading eyebrow="Trouvez votre terrain" title="Une entrée par besoin." sub="Pas besoin de connaître la référence. Commencez par votre métier, votre univers ou votre prochain chantier." action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)]" data-testid="link-categories-all">Toutes les catégories <ArrowRight size={16} /></Link>} />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">{categories.slice(0, 8).map((category) => <CategoryTile key={category.slug} category={category} />)}</div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">{liveCategories.slice(0, 8).map((category) => <CategoryTile key={category.slug} category={category} />)}</div>
     </section>
     <section className="bg-[#eae7df]"><div className="mx-auto max-w-[1440px] px-5 py-16 md:py-20"><SectionHeading eyebrow="Les essentiels du moment" title="Ce qui part en atelier." sub="Une sélection courte, utile, disponible maintenant — avec des prix affichés en dinars, sans détour." action={<Link href="/promotions" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)]" data-testid="link-featured-all">Voir les promotions <ArrowRight size={16} /></Link>} /><ProductGrid items={featured.slice(0, 4)} onAdd={add} onFavorite={toggleFavorite} favorites={favorites} /></div></section>
     <section className="mx-auto max-w-[1440px] px-5 py-16 md:py-20"><div className="grid gap-5 md:grid-cols-[1.25fr_.75fr]"><Link href="/profession/macon" className="ed-noise relative min-h-[360px] overflow-hidden bg-[var(--ed-rust)] p-7 text-white md:p-10" data-testid="link-home-macon"><div className="absolute -right-12 top-10 h-64 w-64 rounded-full border-[34px] border-white/10" /><div className="relative flex h-full flex-col justify-between"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-white/60">Sélection métier 01</p><h2 className="ed-display mt-4 max-w-md text-6xl font-bold leading-[.88]">Pour ceux<br />qui bâtissent.</h2></div><div className="flex items-end justify-between gap-5"><p className="max-w-xs text-sm leading-6 text-white/75">EPI, mesure, électroportatif et consommables pour avancer sans perdre une journée.</p><span className="grid h-12 w-12 shrink-0 place-items-center bg-[var(--ed-yellow)] text-[var(--ed-ink)]"><ArrowRight /></span></div></div></Link><div className="grid gap-5"><Link href="/brand/INGCO" className="ed-card flex min-h-[168px] items-end justify-between bg-[var(--ed-yellow)] p-6 text-[var(--ed-ink)]" data-testid="link-home-ingco"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] opacity-60">Marque repère</p><h3 className="ed-display mt-3 text-5xl font-bold">INGCO</h3><p className="mt-1 text-sm opacity-70">L’énergie jaune pour chaque atelier.</p></div><ArrowRight /></Link><Link href="/category/mesure-detection" className="ed-card flex min-h-[168px] items-end justify-between bg-[var(--ed-ink)] p-6 text-white" data-testid="link-home-measure"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-white/50">Précision d’abord</p><h3 className="ed-display mt-3 text-4xl font-bold">Mesure & détection</h3><p className="mt-1 text-sm text-white/60">Niveaux, lasers, testeurs.</p></div><ArrowRight className="text-[var(--ed-yellow)]" /></Link></div></div></section>
@@ -446,16 +470,15 @@ function CartPage() {
 
 function Router() {
   const [location] = useLocation();
-  const isDashboard = location === '/dashboard' || location === '/admin' || location.startsWith('/dashboard/') || location.startsWith('/admin/');
+  const isOrdersDashboard = location === '/dashboard' || location.startsWith('/dashboard/');
+  const isStoreAdmin = location === '/admin' || location.startsWith('/admin/');
 
-  if (isDashboard) {
-    return (
-      <Switch>
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/admin" component={Dashboard} />
-        <Route component={Dashboard} />
-      </Switch>
-    );
+  if (isOrdersDashboard) {
+    return <Dashboard />;
+  }
+
+  if (isStoreAdmin) {
+    return <StoreAdmin />;
   }
 
   return (

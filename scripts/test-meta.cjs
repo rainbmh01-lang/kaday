@@ -32,7 +32,7 @@ async function testEvent(name, customData = {}, userData = {}) {
     test_event_code: TEST_CODE,
   };
 
-  const res = await fetch(`https://graph.facebook.com/v21.0/${PIXEL_ID}/events?access_token=${ACCESS_TOKEN}`, {
+  const res = await fetch(`https://graph.facebook.com/v25.0/${PIXEL_ID}/events?access_token=${ACCESS_TOKEN}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
