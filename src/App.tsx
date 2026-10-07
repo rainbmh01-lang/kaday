@@ -58,6 +58,7 @@ import {
   products,
   professions,
   type Product,
+  type CatalogLink,
 } from '@/data/store';
 import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
@@ -187,20 +188,59 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
   const [category, setCategory] = useState<string>();
   const [brand, setBrand] = useState<string>();
   const [sort, setSort] = useState('featured');
+  const [liveCategories, setLiveCategories] = useState<any[]>(categories);
   const { favorites, addToCart, toggleFavorite } = useStore();
   const [mobileFilters, setMobileFilters] = useState(false);
+
+  useEffect(() => {
+    getDbCategories().then((cats) => {
+      if (cats && cats.length > 0) {
+        setLiveCategories(
+          cats
+            .filter((c) => c.is_active)
+            .map((c) => ({
+              slug: c.slug,
+              label: c.name,
+              sub: c.description || '',
+              count: 'Découvrir',
+              color: '#f0b83d',
+              icon: 'drill',
+              image_url: c.image_url,
+            }))
+        );
+      }
+    });
+  }, []);
+
   const filtered = useMemo(() => {
     const list = products.filter((product) => (!category || product.category === category) && (!brand || product.brand === brand) && (mode !== 'promotions' || product.oldPrice));
     return [...list].sort((a, b) => sort === 'price-low' ? a.price - b.price : sort === 'price-high' ? b.price - a.price : b.rating - a.rating);
   }, [category, brand, sort, mode]);
-  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: mode === 'promotions' ? 'Promotions' : 'Boutique' }]} /><div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-7 md:flex-row md:items-end"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">{mode === 'promotions' ? 'Prix atelier' : 'Catalogue KADYA DZ'}</p><h1 className="ed-display mt-2 text-6xl font-bold leading-none text-[var(--ed-ink)]">{mode === 'promotions' ? 'Les promotions.' : 'Tout pour travailler.'}</h1><p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{mode === 'promotions' ? 'Les offres courtes sur les références qui font vraiment la différence au quotidien.' : 'Outillage, atelier, mesure, électricité, sécurité et plus. Filtrez par univers ou cherchez une marque.'}</p></div><div className="flex gap-2"><button onClick={() => setMobileFilters(!mobileFilters)} className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm font-semibold lg:hidden" data-testid="button-mobile-filters"><SlidersHorizontal size={15} /> Filtres</button><label className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm"><ArrowDownUp size={14} className="text-slate-400" /><select value={sort} onChange={(event) => setSort(event.target.value)} className="bg-transparent outline-none" data-testid="select-sort"><option value="featured">Pertinence</option><option value="price-low">Prix croissant</option><option value="price-high">Prix décroissant</option></select></label></div></div><div className={`mt-8 ${mobileFilters ? 'block' : 'hidden'} border border-[var(--ed-line)] bg-white p-4 lg:hidden`}><p className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par catégorie</p><div className="mt-3 flex flex-wrap gap-2">{categories.map((cat) => <button key={cat.slug} onClick={() => setCategory(category === cat.slug ? undefined : cat.slug)} className={`px-3 py-2 text-xs font-semibold ${category === cat.slug ? 'bg-[var(--ed-rust)] text-white' : 'bg-slate-100 text-slate-600'}`} data-testid={`button-mobile-category-${cat.slug}`}>{cat.label}</button>)}</div><p className="ed-mono mt-5 text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par marque</p><div className="mt-3 flex flex-wrap gap-2">{brands.map((item) => <button key={item} onClick={() => setBrand(brand === item ? undefined : item)} className={`px-3 py-2 text-xs font-semibold ${brand === item ? 'bg-[var(--ed-ink)] text-white' : 'bg-slate-100 text-slate-600'}`} data-testid={`button-mobile-brand-${item}`}>{item}</button>)}</div></div><div className="mt-8 flex gap-10"><FilterRail activeCategory={category} onCategory={setCategory} activeBrand={brand} onBrand={setBrand} /><div className="min-w-0 flex-1"><div className="mb-5 flex items-center justify-between"><span className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">{filtered.length} références affichées</span>{(category || brand) && <button onClick={() => { setCategory(undefined); setBrand(undefined); }} className="text-xs font-semibold text-[var(--ed-rust)] underline" data-testid="button-clear-filters">Effacer les filtres</button>}</div><ProductGrid items={filtered} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div></div>;
+  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: mode === 'promotions' ? 'Promotions' : 'Boutique' }]} /><div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-7 md:flex-row md:items-end"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">{mode === 'promotions' ? 'Prix atelier' : 'Catalogue KADYA DZ'}</p><h1 className="ed-display mt-2 text-6xl font-bold leading-none text-[var(--ed-ink)]">{mode === 'promotions' ? 'Les promotions.' : 'Tout pour travailler.'}</h1><p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{mode === 'promotions' ? 'Les offres courtes sur les références qui font vraiment la différence au quotidien.' : 'Outillage, atelier, mesure, électricité, sécurité et plus. Filtrez par univers ou cherchez une marque.'}</p></div><div className="flex gap-2"><button onClick={() => setMobileFilters(!mobileFilters)} className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm font-semibold lg:hidden" data-testid="button-mobile-filters"><SlidersHorizontal size={15} /> Filtres</button><label className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm"><ArrowDownUp size={14} className="text-slate-400" /><select value={sort} onChange={(event) => setSort(event.target.value)} className="bg-transparent outline-none" data-testid="select-sort"><option value="featured">Pertinence</option><option value="price-low">Prix croissant</option><option value="price-high">Prix décroissant</option></select></label></div></div><div className={`mt-8 ${mobileFilters ? 'block' : 'hidden'} border border-[var(--ed-line)] bg-white p-4 lg:hidden`}><p className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par catégorie</p><div className="mt-3 flex flex-wrap gap-2">{liveCategories.map((cat) => <button key={cat.slug} onClick={() => setCategory(category === cat.slug ? undefined : cat.slug)} className={`px-3 py-2 text-xs font-semibold ${category === cat.slug ? 'bg-[var(--ed-rust)] text-white' : 'bg-slate-100 text-slate-600'}`} data-testid={`button-mobile-category-${cat.slug}`}>{cat.label}</button>)}</div><p className="ed-mono mt-5 text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par marque</p><div className="mt-3 flex flex-wrap gap-2">{brands.map((item) => <button key={item} onClick={() => setBrand(brand === item ? undefined : item)} className={`px-3 py-2 text-xs font-semibold ${brand === item ? 'bg-[var(--ed-ink)] text-white' : 'bg-slate-100 text-slate-600'}`} data-testid={`button-mobile-brand-${item}`}>{item}</button>)}</div></div><div className="mt-8 flex gap-10"><FilterRail activeCategory={category} onCategory={setCategory} activeBrand={brand} onBrand={setBrand} categoriesList={liveCategories} /><div className="min-w-0 flex-1"><div className="mb-5 flex items-center justify-between"><span className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">{filtered.length} références affichées</span>{(category || brand) && <button onClick={() => { setCategory(undefined); setBrand(undefined); }} className="text-xs font-semibold text-[var(--ed-rust)] underline" data-testid="button-clear-filters">Effacer les filtres</button>}</div><ProductGrid items={filtered} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div></div>;
 }
 
 function CategoryPage() {
   const { category: slug } = useParams<{ category: string }>();
-  const category = findCategory(slug);
+  const [category, setCategory] = useState<CatalogLink | undefined>(() => findCategory(slug));
   const { favorites, addToCart, toggleFavorite } = useStore();
   const items = products.filter((product) => product.category === slug);
+
+  useEffect(() => {
+    getDbCategories().then((cats) => {
+      const found = cats.find((c) => c.slug === slug);
+      if (found) {
+        setCategory({
+          slug: found.slug,
+          label: found.name,
+          sub: found.description || '',
+          count: 'Découvrir',
+          color: '#f0b83d',
+          icon: 'drill',
+        });
+      }
+    });
+  }, [slug]);
+
   if (!category) return <NotFound />;
   return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Boutique', href: '/shop' }, { label: category.label }]} /><div className="relative overflow-hidden bg-[var(--ed-ink)] px-6 py-12 text-white md:px-12 md:py-16"><div className="absolute -right-16 -top-20 h-72 w-72 rounded-full border-[48px] border-white/10" /><div className="relative max-w-2xl"><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">{category.count}</p><h1 className="ed-display mt-3 text-6xl font-bold leading-none md:text-7xl">{category.label}</h1><p className="mt-5 max-w-lg text-sm leading-6 text-white/65">{category.sub}. Des solutions choisies pour les exigences du chantier, de l’atelier et de la maintenance.</p></div></div><div className="mt-10"><SectionHeading eyebrow="La sélection KADYA DZ" title="Prêt à partir." action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)]" data-testid="link-category-all">Voir tout <ArrowRight size={16} /></Link>} /><ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div>;
 }
