@@ -265,7 +265,48 @@ export function SectionHeading({ eyebrow, title, sub, action }: { eyebrow: strin
 
 export function CategoryTile({ category }: { category: CatalogLink & { imageUrl?: string; image_url?: string } }) {
   const catImage = (category as any).image_url || (category as any).imageUrl;
-  return <Link href={`/category/${category.slug}`} className="ed-card group relative min-h-[190px] overflow-hidden border border-[var(--ed-line)] bg-white p-5" data-testid={`link-category-${category.slug}`}>{catImage ? <img src={catImage} alt={category.label} className="absolute -right-2 -bottom-2 h-28 w-28 object-contain opacity-90 transition-transform duration-300 group-hover:scale-110 drop-shadow-sm pointer-events-none" /> : <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-30" style={{ background: category.color || '#f0b83d' }} />}<div className="relative flex h-full flex-col justify-between"><span className="grid h-11 w-11 place-items-center bg-[var(--ed-ink)] text-[var(--ed-yellow)]"><Icon name={category.icon || 'box'} size={22} /></span><div><h3 className="ed-display text-2xl font-bold leading-none text-[var(--ed-ink)]">{category.label}</h3><p className="mt-2 text-xs text-slate-500">{category.sub}</p><span className="ed-mono mt-4 block text-[10px] uppercase tracking-[.15em] text-[var(--ed-rust)]">{category.count || 'Découvrir'} <ArrowRight className="ml-1 inline" size={12} /></span></div></div></Link>;
+  return (
+    <Link
+      href={`/category/${category.slug}`}
+      className="ed-card group relative min-h-[195px] overflow-hidden border border-[var(--ed-line)] bg-white p-4 sm:p-5 flex flex-col justify-between"
+      data-testid={`link-category-${category.slug}`}
+    >
+      {/* Top row: Icon on left, Photo / Accent on right */}
+      <div className="flex items-start justify-between relative z-10">
+        <span className="grid h-10 w-10 sm:h-11 sm:w-11 place-items-center bg-[var(--ed-ink)] text-[var(--ed-yellow)] shrink-0">
+          <Icon name={category.icon || 'box'} size={20} />
+        </span>
+
+        {catImage ? (
+          <div className="h-14 w-14 sm:h-16 sm:w-16 rounded overflow-hidden bg-slate-50 border border-slate-200/80 p-1 shrink-0 flex items-center justify-center transition-transform group-hover:scale-105">
+            <img
+              src={catImage}
+              alt={category.label}
+              className="h-full w-full object-contain"
+            />
+          </div>
+        ) : (
+          <div
+            className="h-12 w-12 rounded-full opacity-25 shrink-0"
+            style={{ background: category.color || '#f0b83d' }}
+          />
+        )}
+      </div>
+
+      {/* Bottom Content: Title, description, and link - clean & fully readable */}
+      <div className="relative z-10 mt-3 sm:mt-4">
+        <h3 className="ed-display text-lg sm:text-2xl font-bold leading-tight text-[var(--ed-ink)] line-clamp-2">
+          {category.label}
+        </h3>
+        <p className="mt-1 text-xs text-slate-500 line-clamp-1">
+          {category.sub}
+        </p>
+        <span className="ed-mono mt-3 block text-[10px] uppercase tracking-[.15em] text-[var(--ed-rust)] font-semibold">
+          {category.count || 'Découvrir'} <ArrowRight className="ml-1 inline" size={12} />
+        </span>
+      </div>
+    </Link>
+  );
 }
 
 export function ProductGrid({ items, onAdd, onFavorite, favorites, emptyLabel = 'Aucun produit trouvé.' }: { items: Product[]; onAdd?: (product: Product) => void; onFavorite: (product: Product) => void; favorites: string[]; emptyLabel?: string }) {
