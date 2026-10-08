@@ -516,6 +516,14 @@ function ProductPage() {
   const [isPaused, setIsPaused] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
+  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const displayImages = useMemo(() => {
+    if (!product) return [];
+    return product.images && product.images.length > 0
+      ? product.images
+      : (product.imageUrl ? [product.imageUrl] : []);
+  }, [product]);
 
   useEffect(() => {
     if (product) {
@@ -524,12 +532,6 @@ function ProductPage() {
     }
   }, [product?.id]);
 
-  if (!product) return <NotFound />;
-
-  const displayImages = product.images && product.images.length > 0
-    ? product.images
-    : (product.imageUrl ? [product.imageUrl] : []);
-
   useEffect(() => {
     if (displayImages.length <= 1 || isPaused) return;
     const timer = setInterval(() => {
@@ -537,8 +539,6 @@ function ProductPage() {
     }, 2800);
     return () => clearInterval(timer);
   }, [displayImages.length, isPaused]);
-
-  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setIsPaused(true);
@@ -567,6 +567,8 @@ function ProductPage() {
       setIsPaused(false);
     }, 3500);
   };
+
+  if (!product) return <NotFound />;
 
   return (
     <div id="product-main" className="mx-auto max-w-[1440px] px-4 py-4 sm:px-5 sm:py-6 md:py-12">
