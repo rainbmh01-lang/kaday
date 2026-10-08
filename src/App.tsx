@@ -406,7 +406,7 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
       <div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-7 md:flex-row md:items-end">
         <div>
           {mode === 'promotions' && <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Prix atelier</p>}
-          <h1 className="ed-display mt-2 text-6xl font-bold leading-none text-[var(--ed-ink)]">
+          <h1 className="ed-display mt-2 text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight sm:leading-none text-[var(--ed-ink)] whitespace-nowrap">
             {mode === 'promotions' ? 'Les promotions.' : 'Tous les produits'}
           </h1>
           {mode === 'promotions' && (
