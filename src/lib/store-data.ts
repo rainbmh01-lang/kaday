@@ -292,3 +292,163 @@ export async function deleteDbBrand(id: string): Promise<void> {
 
   if (error) throw error;
 }
+
+// ---------------- PRODUCTS ----------------
+
+export interface DbProduct {
+  id: string;
+  name: string;
+  slug: string;
+  summary?: string;
+  brand_id?: string;
+  category_id?: string;
+  brand_name?: string;
+  category_slug?: string;
+  price: number;
+  old_price?: number;
+  tech_summary?: string;
+  specs: string[];
+  images: string[];
+  is_active: boolean;
+  in_stock: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Fetch products from Supabase
+export async function getDbProducts(includeInactive = false): Promise<DbProduct[]> {
+  try {
+    let query = supabase
+      .from('products')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!includeInactive) {
+      query = query.eq('is_active', true);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching products:', error);
+      return [];
+    }
+    return (data || []).map((p: any) => ({
+      ...p,
+      specs: Array.isArray(p.specs) ? p.specs : [],
+      images: Array.isArray(p.images) ? p.images : [],
+      price: Number(p.price) || 0,
+      old_price: p.old_price ? Number(p.old_price) : undefined,
+    }));
+  } catch (err) {
+    console.error('Error in getDbProducts:', err);
+    return [];
+  }
+}
+
+// Upload product image to Supabase Storage
+export async function uploadProductImage(file: File, slug: string, index: number): Promise<string> {
+  const fileExt = file.name.split('.').pop() || 'png';
+  const fileName = `products/${slug}-${index}-${Date.now()}.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('store-images')
+    .upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: true,
+    });
+
+  if (uploadError) {
+    throw new Error(`Erreur lors du téléchargement de l'image: ${uploadError.message}`);
+  }
+
+  const { data } = supabase.storage
+    .from('store-images')
+    .getPublicUrl(fileName);
+
+  return data.publicUrl;
+}
+
+// Save or update product
+export async function saveDbProduct(product: Partial<DbProduct>): Promise<DbProduct> {
+  const payload: any = {
+    name: product.name,
+    slug: product.slug,
+    summary: product.summary || '',
+    brand_id: product.brand_id || null,
+    category_id: product.category_id || null,
+    brand_name: product.brand_name || null,
+    category_slug: product.category_slug || null,
+    price: Number(product.price) || 0,
+    old_price: product.old_price ? Number(product.old_price) : null,
+    tech_summary: product.tech_summary || '',
+    specs: Array.isArray(product.specs) ? product.specs.slice(0, 10) : [],
+    images: Array.isArray(product.images) ? product.images.slice(0, 5) : [],
+    is_active: product.is_active ?? true,
+    in_stock: product.in_stock ?? true,
+    updated_at: new Date().toISOString(),
+  };
+
+  const isUuid = product.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id);
+
+  if (isUuid) {
+    const { data, error } = await supabase
+      .from('products')
+      .update(payload)
+      .eq('id', product.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return {
+      ...data,
+      specs: Array.isArray(data.specs) ? data.specs : [],
+      images: Array.isArray(data.images) ? data.images : [],
+    };
+  } else {
+    // Check if exists by slug
+    const { data: existing } = await supabase
+      .from('products')
+      .select('id')
+      .eq('slug', product.slug)
+      .maybeSingle();
+
+    if (existing?.id) {
+      const { data, error } = await supabase
+        .from('products')
+        .update(payload)
+        .eq('id', existing.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return {
+        ...data,
+        specs: Array.isArray(data.specs) ? data.specs : [],
+        images: Array.isArray(data.images) ? data.images : [],
+      };
+    }
+
+    // Insert new
+    const { data, error } = await supabase
+      .from('products')
+      .insert([payload])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return {
+      ...data,
+      specs: Array.isArray(data.specs) ? data.specs : [],
+      images: Array.isArray(data.images) ? data.images : [],
+    };
+  }
+}
+
+// Delete product
+export async function deleteDbProduct(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}

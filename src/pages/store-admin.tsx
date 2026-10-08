@@ -32,7 +32,13 @@ import {
   saveDbBrand,
   deleteDbBrand,
   type DbBrand,
+  getDbProducts,
+  saveDbProduct,
+  deleteDbProduct,
+  uploadProductImage,
+  type DbProduct,
 } from '@/lib/store-data';
+import { formatDzd } from '@/data/store';
 
 type Tab = 'products' | 'categories' | 'brands';
 
@@ -68,6 +74,20 @@ export default function StoreAdmin() {
   const [brandLogoPreview, setBrandLogoPreview] = useState<string>('');
   const [brandSaving, setBrandSaving] = useState(false);
   const [brandError, setBrandError] = useState('');
+
+  // Products state
+  const [products, setProducts] = useState<DbProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const [selectedCatFilter, setSelectedCatFilter] = useState('');
+  const [selectedBrandFilter, setSelectedBrandFilter] = useState('');
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Partial<DbProduct> | null>(null);
+  const [productImages, setProductImages] = useState<string[]>([]);
+  const [productImageFiles, setProductImageFiles] = useState<(File | null)[]>([null, null, null, null, null]);
+  const [productSpecs, setProductSpecs] = useState<string[]>(['']);
+  const [productSaving, setProductSaving] = useState(false);
+  const [productError, setProductError] = useState('');
 
   const [successToast, setSuccessToast] = useState('');
 
@@ -112,10 +132,24 @@ export default function StoreAdmin() {
     }
   };
 
+  // Load products
+  const loadProducts = async () => {
+    setProductsLoading(true);
+    try {
+      const data = await getDbProducts(true);
+      setProducts(data);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (session) {
       loadCategories();
       loadBrands();
+      loadProducts();
     }
   }, [session]);
 
@@ -294,6 +328,176 @@ export default function StoreAdmin() {
       await saveDbBrand({ ...brand, is_active: !brand.is_active });
       showToast(brand.is_active ? 'Marque masquée' : 'Marque activée');
       await loadBrands();
+    } catch (err: any) {
+      alert(`Erreur: ${err.message}`);
+    }
+  };
+
+  // Product Handlers
+  const handleOpenAddProduct = () => {
+    setEditingProduct({
+      name: '',
+      slug: '',
+      summary: '',
+      brand_name: brands[0]?.name || '',
+      category_slug: categories[0]?.slug || '',
+      price: 0,
+      old_price: undefined,
+      tech_summary: '',
+      is_active: true,
+      in_stock: true,
+    });
+    setProductImages([]);
+    setProductImageFiles([null, null, null, null, null]);
+    setProductSpecs(['']);
+    setProductError('');
+    setIsProductModalOpen(true);
+  };
+
+  const handleOpenEditProduct = (p: DbProduct) => {
+    setEditingProduct({ ...p });
+    setProductImages(p.images ? [...p.images] : []);
+    setProductImageFiles([null, null, null, null, null]);
+    setProductSpecs(p.specs && p.specs.length > 0 ? [...p.specs] : ['']);
+    setProductError('');
+    setIsProductModalOpen(true);
+  };
+
+  const handleProductImageSlotChange = (slotIndex: number, file: File | null) => {
+    const updatedFiles = [...productImageFiles];
+    updatedFiles[slotIndex] = file;
+    setProductImageFiles(updatedFiles);
+
+    if (file) {
+      const previewUrl = URL.createObjectURL(file);
+      const updatedImages = [...productImages];
+      updatedImages[slotIndex] = previewUrl;
+      setProductImages(updatedImages);
+    }
+  };
+
+  const handleRemoveProductImageSlot = (slotIndex: number) => {
+    const updatedFiles = [...productImageFiles];
+    updatedFiles.splice(slotIndex, 1);
+    updatedFiles.push(null);
+    setProductImageFiles(updatedFiles);
+
+    const updatedImages = [...productImages];
+    updatedImages.splice(slotIndex, 1);
+    setProductImages(updatedImages);
+  };
+
+  const handleAddSpecLine = () => {
+    if (productSpecs.length >= 10) return;
+    setProductSpecs([...productSpecs, '']);
+  };
+
+  const handleSpecChange = (index: number, val: string) => {
+    const updated = [...productSpecs];
+    updated[index] = val;
+    setProductSpecs(updated);
+  };
+
+  const handleRemoveSpec = (index: number) => {
+    if (productSpecs.length <= 1) {
+      setProductSpecs(['']);
+      return;
+    }
+    const updated = [...productSpecs];
+    updated.splice(index, 1);
+    setProductSpecs(updated);
+  };
+
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct?.name?.trim()) {
+      setProductError('Le nom du produit est obligatoire.');
+      return;
+    }
+    if (editingProduct.price === undefined || editingProduct.price === null || Number(editingProduct.price) < 0) {
+      setProductError('Veuillez renseigner un prix de vente valide.');
+      return;
+    }
+
+    setProductSaving(true);
+    setProductError('');
+
+    try {
+      const slug = editingProduct.slug?.trim()
+        ? editingProduct.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+        : editingProduct.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+      // Upload any new image files
+      const finalImages: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        const file = productImageFiles[i];
+        if (file) {
+          const uploadedUrl = await uploadProductImage(file, slug, i + 1);
+          finalImages.push(uploadedUrl);
+        } else if (productImages[i] && !productImages[i].startsWith('blob:')) {
+          finalImages.push(productImages[i]);
+        }
+      }
+
+      // Filter non-empty specs
+      const cleanSpecs = productSpecs
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+        .slice(0, 10);
+
+      // Match brand_id and category_id
+      const brandObj = brands.find(
+        (b) => b.name.toLowerCase() === editingProduct.brand_name?.toLowerCase()
+      );
+      const catObj = categories.find(
+        (c) => c.slug.toLowerCase() === editingProduct.category_slug?.toLowerCase()
+      );
+
+      await saveDbProduct({
+        ...editingProduct,
+        slug,
+        brand_id: brandObj?.id,
+        category_id: catObj?.id,
+        images: finalImages,
+        specs: cleanSpecs,
+      });
+
+      setIsProductModalOpen(false);
+      showToast('Produit enregistré avec succès !');
+      await loadProducts();
+    } catch (err: any) {
+      setProductError(err.message || 'Erreur lors de l’enregistrement du produit.');
+    } finally {
+      setProductSaving(false);
+    }
+  };
+
+  const handleDeleteProduct = async (p: DbProduct) => {
+    if (!window.confirm(`Supprimer le produit "${p.name}" ?`)) return;
+    try {
+      await deleteDbProduct(p.id);
+      showToast(`Produit "${p.name}" supprimé.`);
+      await loadProducts();
+    } catch (err: any) {
+      alert(`Erreur: ${err.message}`);
+    }
+  };
+
+  const handleToggleActiveProduct = async (p: DbProduct) => {
+    try {
+      await saveDbProduct({ ...p, is_active: !p.is_active });
+      showToast(p.is_active ? 'Produit masqué' : 'Produit activé');
+      await loadProducts();
+    } catch (err: any) {
+      alert(`Erreur: ${err.message}`);
+    }
+  };
+
+  const handleToggleStockProduct = async (p: DbProduct) => {
+    try {
+      await saveDbProduct({ ...p, in_stock: !p.in_stock });
+      showToast(p.in_stock ? 'Produit marqué en rupture' : 'Produit marqué en stock');
+      await loadProducts();
     } catch (err: any) {
       alert(`Erreur: ${err.message}`);
     }
@@ -486,7 +690,7 @@ export default function StoreAdmin() {
             }`}
           >
             <Package size={17} />
-            <span>Produits (Catalogue)</span>
+            <span>Produits ({products.length})</span>
           </button>
         </div>
 
@@ -728,25 +932,255 @@ export default function StoreAdmin() {
           </div>
         )}
 
-        {/* Tab: Products placeholder */}
+        {/* Tab: Products */}
         {activeTab === 'products' && (
-          <div className="bg-white border border-[var(--ed-line)] p-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-100">
+          <div className="space-y-6">
+            {/* Top Toolbar */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white border border-[var(--ed-line)] p-5">
               <div>
                 <h2 className="ed-display text-2xl font-bold">Gestion des Produits</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Ajout, modification, photos (max 5), fiche technique (max 10 lignes) et prix.
+                <p className="text-xs text-slate-500 mt-1">
+                  Catalogue complet : photos (jusqu'à 5), caractéristiques techniques (jusqu'à 10), prix et gestion du stock.
                 </p>
               </div>
-              <button className="bg-[var(--ed-yellow)] text-[var(--ed-ink)] text-xs font-bold px-4 py-2.5 flex items-center gap-2">
-                <Plus size={15} />
-                <span>Nouveau Produit</span>
-              </button>
+
+              <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
+                <button
+                  onClick={loadProducts}
+                  className="p-2 border border-slate-200 text-slate-500 hover:text-[var(--ed-ink)] hover:bg-slate-50 transition-colors"
+                  title="Rafraîchir"
+                >
+                  <RefreshCw size={15} className={productsLoading ? 'animate-spin' : ''} />
+                </button>
+
+                <button
+                  onClick={handleOpenAddProduct}
+                  className="bg-[var(--ed-yellow)] hover:bg-[var(--ed-ink)] hover:text-white text-[var(--ed-ink)] text-xs font-bold px-4 py-2.5 flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Plus size={15} />
+                  <span>Nouveau Produit</span>
+                </button>
+              </div>
             </div>
-            <div className="py-12 text-center text-slate-400">
-              <Package size={40} className="mx-auto mb-3 opacity-40" />
-              <p className="font-semibold text-slate-600">Module Produits prêt pour l'étape suivante (Étape 5)</p>
+
+            {/* Filter and Search Bar */}
+            <div className="bg-white border border-[var(--ed-line)] p-4 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+              <div className="relative flex-1">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher par nom, référence ou marque..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 border border-slate-200 text-xs focus:border-[var(--ed-ink)] focus:outline-none"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Category filter */}
+                <select
+                  value={selectedCatFilter}
+                  onChange={(e) => setSelectedCatFilter(e.target.value)}
+                  className="px-3 py-2 border border-slate-200 text-xs bg-white text-slate-700 outline-none"
+                >
+                  <option value="">Toutes les catégories</option>
+                  {categories.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Brand filter */}
+                <select
+                  value={selectedBrandFilter}
+                  onChange={(e) => setSelectedBrandFilter(e.target.value)}
+                  className="px-3 py-2 border border-slate-200 text-xs bg-white text-slate-700 outline-none"
+                >
+                  <option value="">Toutes les marques</option>
+                  {brands.map((b) => (
+                    <option key={b.name} value={b.name}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
+
+            {/* Products List / Grid */}
+            {productsLoading ? (
+              <div className="py-20 text-center text-slate-400">
+                <RefreshCw className="animate-spin mx-auto mb-2 text-[var(--ed-rust)]" size={24} />
+                <p className="text-xs font-semibold">Chargement des produits...</p>
+              </div>
+            ) : (() => {
+              const filteredList = products.filter((p) => {
+                const matchQuery =
+                  !productSearch.trim() ||
+                  p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                  p.slug.toLowerCase().includes(productSearch.toLowerCase()) ||
+                  (p.brand_name && p.brand_name.toLowerCase().includes(productSearch.toLowerCase()));
+                const matchCat =
+                  !selectedCatFilter ||
+                  (p.category_slug && p.category_slug.toLowerCase() === selectedCatFilter.toLowerCase());
+                const matchBrand =
+                  !selectedBrandFilter ||
+                  (p.brand_name && p.brand_name.toLowerCase() === selectedBrandFilter.toLowerCase());
+                return matchQuery && matchCat && matchBrand;
+              });
+
+              if (filteredList.length === 0) {
+                return (
+                  <div className="bg-white border border-[var(--ed-line)] p-12 text-center text-slate-400">
+                    <Package size={40} className="mx-auto mb-3 opacity-40" />
+                    <p className="font-semibold text-slate-700">Aucun produit trouvé</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {products.length === 0
+                        ? 'Cliquez sur "Nouveau Produit" pour créer votre premier article.'
+                        : 'Aucun produit ne correspond aux critères de recherche.'}
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredList.map((product) => {
+                    const coverImg = product.images && product.images.length > 0 ? product.images[0] : null;
+                    const imgCount = product.images ? product.images.length : 0;
+                    const specsCount = product.specs ? product.specs.length : 0;
+
+                    return (
+                      <div
+                        key={product.id}
+                        className="bg-white border border-[var(--ed-line)] flex flex-col justify-between overflow-hidden shadow-sm group hover:border-[var(--ed-rust)] transition-colors"
+                      >
+                        {/* Cover Image & Badges */}
+                        <div className="h-48 bg-slate-50 relative flex items-center justify-center border-b border-slate-100 overflow-hidden">
+                          {coverImg ? (
+                            <img
+                              src={coverImg}
+                              alt={product.name}
+                              className="h-full w-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-slate-300">
+                              <ImageIcon size={34} className="mb-1" />
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                Sans photo
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Image count badge */}
+                          {imgCount > 0 && (
+                            <span className="absolute bottom-2 left-2 bg-black/70 text-white px-1.5 py-0.5 text-[10px] font-bold rounded flex items-center gap-1">
+                              <ImageIcon size={10} />
+                              <span>{imgCount} / 5</span>
+                            </span>
+                          )}
+
+                          {/* Stock status toggle button */}
+                          <button
+                            onClick={() => handleToggleStockProduct(product)}
+                            className={`absolute top-2.5 left-2.5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded cursor-pointer transition-colors ${
+                              product.in_stock
+                                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                : 'bg-rose-600 text-white hover:bg-rose-700'
+                            }`}
+                            title="Cliquer pour changer l'état du stock"
+                          >
+                            {product.in_stock ? 'En stock' : 'Rupture'}
+                          </button>
+
+                          {/* Visibility badge */}
+                          <button
+                            onClick={() => handleToggleActiveProduct(product)}
+                            className={`absolute top-2.5 right-2.5 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded cursor-pointer ${
+                              product.is_active
+                                ? 'bg-white text-slate-700 hover:bg-slate-100'
+                                : 'bg-slate-800 text-white hover:bg-slate-900'
+                            }`}
+                            title={product.is_active ? 'Visible sur la boutique' : 'Masqué sur la boutique'}
+                          >
+                            {product.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
+                          </button>
+                        </div>
+
+                        {/* Product Info */}
+                        <div className="p-4 flex-1 flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1.5">
+                              {product.brand_name && (
+                                <span className="ed-mono text-[10px] font-bold uppercase tracking-wider text-[var(--ed-rust)] bg-amber-50 px-1.5 py-0.5 border border-amber-200">
+                                  {product.brand_name}
+                                </span>
+                              )}
+                              {product.category_slug && (
+                                <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 truncate max-w-[120px]">
+                                  {categories.find((c) => c.slug === product.category_slug)?.name || product.category_slug}
+                                </span>
+                              )}
+                            </div>
+
+                            <h3 className="font-bold text-sm text-[var(--ed-ink)] leading-snug line-clamp-2" title={product.name}>
+                              {product.name}
+                            </h3>
+
+                            {product.summary && (
+                              <p className="text-xs text-slate-500 mt-1 line-clamp-1">
+                                {product.summary}
+                              </p>
+                            )}
+
+                            {/* Pricing */}
+                            <div className="mt-3 flex items-baseline gap-2">
+                              <span className="font-extrabold text-base text-[var(--ed-ink)]">
+                                {formatDzd(product.price)}
+                              </span>
+                              {product.old_price && product.old_price > product.price && (
+                                <span className="text-xs text-slate-400 line-through">
+                                  {formatDzd(product.old_price)}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Specs count indicator */}
+                            <div className="mt-2 text-[10px] text-slate-400 flex items-center gap-1">
+                              <span>● {specsCount} / 10 spécification{specsCount > 1 ? 's' : ''}</span>
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                            <span className="text-[10px] text-slate-400 ed-mono truncate max-w-[120px]">
+                              /{product.slug}
+                            </span>
+
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleOpenEditProduct(product)}
+                                className="p-1.5 text-slate-600 hover:text-[var(--ed-ink)] hover:bg-slate-100 transition-colors cursor-pointer rounded"
+                                title="Modifier le produit"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteProduct(product)}
+                                className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 transition-colors cursor-pointer rounded"
+                                title="Supprimer le produit"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
       </main>
@@ -1107,6 +1541,447 @@ export default function StoreAdmin() {
                     </>
                   ) : (
                     <span>Enregistrer la marque</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Add / Edit Product */}
+      {isProductModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-4xl border border-[var(--ed-line)] shadow-2xl my-6 overflow-hidden animate-in fade-in zoom-in-95 flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-[#f8f7f3]">
+              <div>
+                <h3 className="font-bold text-base text-[var(--ed-ink)]">
+                  {editingProduct?.id ? 'Modifier le produit' : 'Nouveau produit'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Remplissez la fiche produit, les tarifs, la galerie photos et les caractéristiques techniques.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsProductModalOpen(false)}
+                className="p-1 hover:bg-slate-200 text-slate-500 cursor-pointer rounded"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+              {productError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2 rounded">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <span>{productError}</span>
+                </div>
+              )}
+
+              {/* SECTION 1: Informations Générales */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                  <Package size={16} className="text-[var(--ed-rust)]" />
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700">
+                    1. Informations Générales
+                  </h4>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Nom du produit *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Perceuse-visseuse sans fil 20V CROWN CT38084"
+                    value={editingProduct?.name || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditingProduct((prev) => ({
+                        ...prev,
+                        name: val,
+                        // Auto-generate slug if not manually touched
+                        slug: prev?.id ? prev.slug : val.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+                      }));
+                    }}
+                    className="w-full px-3.5 py-2.5 border border-slate-300 text-sm focus:border-[var(--ed-ink)] focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Catégorie *
+                    </label>
+                    <select
+                      required
+                      value={editingProduct?.category_slug || ''}
+                      onChange={(e) =>
+                        setEditingProduct((prev) => ({
+                          ...prev,
+                          category_slug: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3.5 py-2.5 border border-slate-300 text-sm focus:border-[var(--ed-ink)] focus:outline-none bg-white"
+                    >
+                      <option value="">Sélectionner une catégorie</option>
+                      {categories.map((c) => (
+                        <option key={c.slug} value={c.slug}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Marque *
+                    </label>
+                    <select
+                      required
+                      value={editingProduct?.brand_name || ''}
+                      onChange={(e) =>
+                        setEditingProduct((prev) => ({
+                          ...prev,
+                          brand_name: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3.5 py-2.5 border border-slate-300 text-sm focus:border-[var(--ed-ink)] focus:outline-none bg-white"
+                    >
+                      <option value="">Sélectionner une marque</option>
+                      {brands.map((b) => (
+                        <option key={b.name} value={b.name}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Slug d'accès (URL)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="crown-perceuse-visseuse-20v"
+                    value={editingProduct?.slug || ''}
+                    onChange={(e) =>
+                      setEditingProduct((prev) => ({
+                        ...prev,
+                        slug: e.target.value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'),
+                      }))
+                    }
+                    className="w-full px-3.5 py-2 border border-slate-300 text-xs ed-mono focus:border-[var(--ed-ink)] focus:outline-none"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    URL générée : /product/{editingProduct?.slug || 'mon-produit'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Résumé court (Accroche atelier)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Couple 50 Nm, 2 vitesses, mandrin auto-serrant 13 mm, 2 batteries 2.0 Ah incluses."
+                    value={editingProduct?.summary || ''}
+                    onChange={(e) =>
+                      setEditingProduct((prev) => ({
+                        ...prev,
+                        summary: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3.5 py-2 border border-slate-300 text-xs focus:border-[var(--ed-ink)] focus:outline-none resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* SECTION 2: Tarification & Stock */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                  <Tag size={16} className="text-[var(--ed-rust)]" />
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700">
+                    2. Tarifs & Disponibilité
+                  </h4>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Prix de vente (DZD) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      step={50}
+                      placeholder="18500"
+                      value={editingProduct?.price || ''}
+                      onChange={(e) =>
+                        setEditingProduct((prev) => ({
+                          ...prev,
+                          price: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      className="w-full px-3.5 py-2.5 border border-slate-300 text-sm font-bold text-[var(--ed-ink)] focus:border-[var(--ed-ink)] focus:outline-none"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      Affichage : {formatDzd(editingProduct?.price || 0)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Ancien prix barré (Optionnel)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={50}
+                      placeholder="21000"
+                      value={editingProduct?.old_price || ''}
+                      onChange={(e) =>
+                        setEditingProduct((prev) => ({
+                          ...prev,
+                          old_price: e.target.value ? parseFloat(e.target.value) : undefined,
+                        }))
+                      }
+                      className="w-full px-3.5 py-2.5 border border-slate-300 text-sm text-slate-600 focus:border-[var(--ed-ink)] focus:outline-none"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      Permet d'afficher une promotion barrée
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-3.5 border border-slate-200">
+                  <label className="flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={editingProduct?.in_stock ?? true}
+                      onChange={(e) =>
+                        setEditingProduct((prev) => ({
+                          ...prev,
+                          in_stock: e.target.checked,
+                        }))
+                      }
+                      className="h-4 w-4 rounded accent-emerald-600"
+                    />
+                    <span>En stock (Disponible immédiatement à la commande)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={editingProduct?.is_active ?? true}
+                      onChange={(e) =>
+                        setEditingProduct((prev) => ({
+                          ...prev,
+                          is_active: e.target.checked,
+                        }))
+                      }
+                      className="h-4 w-4 rounded accent-[var(--ed-rust)]"
+                    />
+                    <span>Actif (Visible sur le catalogue public)</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* SECTION 3: Galerie de Photos (Max 5) */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon size={16} className="text-[var(--ed-rust)]" />
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700">
+                      3. Galerie de Photos (Jusqu'à 5 photos)
+                    </h4>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    {productImages.filter(Boolean).length} / 5 photos ajoutées
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-500">
+                  La <strong>première photo</strong> sera utilisée comme photo de couverture principale. Formats recommandés : WEBP, PNG ou JPG fond blanc.
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                  {[0, 1, 2, 3, 4].map((slotIdx) => {
+                    const imgUrl = productImages[slotIdx];
+                    const isCover = slotIdx === 0;
+
+                    return (
+                      <div
+                        key={slotIdx}
+                        className={`relative border flex flex-col items-center justify-center h-36 rounded overflow-hidden transition-all ${
+                          imgUrl
+                            ? 'border-slate-300 bg-white shadow-xs'
+                            : 'border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100'
+                        }`}
+                      >
+                        {/* Cover Badge */}
+                        {isCover && (
+                          <span className="absolute top-1.5 left-1.5 z-10 bg-[var(--ed-yellow)] text-[var(--ed-ink)] text-[9px] font-black uppercase px-1.5 py-0.5 shadow-xs">
+                            Couverture
+                          </span>
+                        )}
+
+                        {imgUrl ? (
+                          <>
+                            <img
+                              src={imgUrl}
+                              alt={`Slot ${slotIdx + 1}`}
+                              className="h-full w-full object-contain p-2"
+                            />
+                            {/* Action overlay */}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                              <label className="p-1.5 bg-white text-slate-700 rounded hover:bg-slate-100 cursor-pointer shadow-md">
+                                <UploadCloud size={14} />
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    if (e.target.files?.[0]) {
+                                      handleProductImageSlotChange(slotIdx, e.target.files[0]);
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveProductImageSlot(slotIdx)}
+                                className="p-1.5 bg-rose-600 text-white rounded hover:bg-rose-700 cursor-pointer shadow-md"
+                                title="Supprimer cette photo"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer p-3 text-center">
+                            <UploadCloud size={22} className="text-slate-400 mb-1" />
+                            <span className="text-[10px] font-bold text-slate-600">
+                              {isCover ? 'Photo 1 (Cover)' : `Photo ${slotIdx + 1}`}
+                            </span>
+                            <span className="text-[9px] text-slate-400 mt-0.5">Choisir</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                if (e.target.files?.[0]) {
+                                  handleProductImageSlotChange(slotIdx, e.target.files[0]);
+                                }
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* SECTION 4: Fiche Technique & Spécifications (Max 10) */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Layers size={16} className="text-[var(--ed-rust)]" />
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700">
+                      4. Fiche Technique & Spécifications (Jusqu'à 10 lignes)
+                    </h4>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    {productSpecs.length} / 10 lignes
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Introduction / Synthèse technique
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Ex: Équipée d'un moteur haute performance avec technologie Brushless garantissant une autonomie supérieure."
+                    value={editingProduct?.tech_summary || ''}
+                    onChange={(e) =>
+                      setEditingProduct((prev) => ({
+                        ...prev,
+                        tech_summary: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3.5 py-2 border border-slate-300 text-xs focus:border-[var(--ed-ink)] focus:outline-none resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Lignes de spécifications (Affichage technique)
+                  </label>
+
+                  {productSpecs.map((spec, specIdx) => (
+                    <div key={specIdx} className="flex items-center gap-2">
+                      <span className="ed-mono text-xs font-bold bg-slate-100 text-slate-600 px-2.5 py-2 border border-slate-200 shrink-0">
+                        {String(specIdx + 1).padStart(2, '0')}
+                      </span>
+                      <input
+                        type="text"
+                        placeholder={`Spécification ${specIdx + 1} (ex: Tension 20V Max, Mandrin 13mm acier...)`}
+                        value={spec}
+                        onChange={(e) => handleSpecChange(specIdx, e.target.value)}
+                        className="flex-1 px-3 py-2 border border-slate-300 text-xs focus:border-[var(--ed-ink)] focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSpec(specIdx)}
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                        title="Supprimer cette ligne"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+
+                  {productSpecs.length < 10 && (
+                    <button
+                      type="button"
+                      onClick={handleAddSpecLine}
+                      className="mt-2 text-xs font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)] flex items-center gap-1.5 py-1.5 px-2.5 border border-dashed border-[var(--ed-rust)]/40 hover:border-[var(--ed-rust)] transition-colors cursor-pointer"
+                    >
+                      <Plus size={13} />
+                      <span>Ajouter une caractéristique ({10 - productSpecs.length} restantes)</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="pt-5 border-t border-slate-100 flex items-center justify-end gap-3 sticky bottom-0 bg-white py-3">
+                <button
+                  type="button"
+                  onClick={() => setIsProductModalOpen(false)}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={productSaving}
+                  className="px-6 py-2.5 bg-[var(--ed-yellow)] hover:bg-[var(--ed-ink)] hover:text-white text-[var(--ed-ink)] text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
+                >
+                  {productSaving ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" />
+                      <span>Téléversement et enregistrement...</span>
+                    </>
+                  ) : (
+                    <span>Enregistrer le produit</span>
                   )}
                 </button>
               </div>
