@@ -402,12 +402,18 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
 
   return (
     <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
-      <Breadcrumbs items={[{ label: mode === 'promotions' ? 'Promotions' : 'Boutique' }]} />
+      {mode === 'promotions' && <Breadcrumbs items={[{ label: 'Promotions' }]} />}
       <div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-7 md:flex-row md:items-end">
         <div>
-          <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">{mode === 'promotions' ? 'Prix atelier' : 'Catalogue KADYA DZ'}</p>
-          <h1 className="ed-display mt-2 text-6xl font-bold leading-none text-[var(--ed-ink)]">{mode === 'promotions' ? 'Les promotions.' : 'Tout pour travailler.'}</h1>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{mode === 'promotions' ? 'Les offres courtes sur les références qui font vraiment la différence au quotidien.' : 'Outillage, atelier, mesure, électricité, sécurité et plus. Filtrez par univers, type ou cherchez une marque.'}</p>
+          {mode === 'promotions' && <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Prix atelier</p>}
+          <h1 className="ed-display mt-2 text-6xl font-bold leading-none text-[var(--ed-ink)]">
+            {mode === 'promotions' ? 'Les promotions.' : 'Tous les produits'}
+          </h1>
+          {mode === 'promotions' && (
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">
+              Les offres courtes sur les références qui font vraiment la différence au quotidien.
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
