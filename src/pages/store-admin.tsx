@@ -36,6 +36,7 @@ import {
   saveDbProduct,
   deleteDbProduct,
   uploadProductImage,
+  seedInitialProducts,
   type DbProduct,
 } from '@/lib/store-data';
 import { formatDzd } from '@/data/store';
@@ -88,6 +89,7 @@ export default function StoreAdmin() {
   const [productSpecs, setProductSpecs] = useState<string[]>(['']);
   const [productSaving, setProductSaving] = useState(false);
   const [productError, setProductError] = useState('');
+  const [seeding, setSeeding] = useState(false);
 
   const [successToast, setSuccessToast] = useState('');
 
@@ -408,13 +410,28 @@ export default function StoreAdmin() {
     setProductSpecs(updated);
   };
 
+  const handleSeedProducts = async () => {
+    if (!window.confirm('Voulez-vous importer les 10 produits du catalogue KADYA DZ dans la base de données ?')) return;
+    setSeeding(true);
+    try {
+      await seedInitialProducts();
+      showToast('10 produits importés avec succès dans la base de données !');
+      await loadProducts();
+    } catch (err: any) {
+      console.error('Seed error:', err);
+      alert(`Erreur d'importation: ${err.message}`);
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct?.name?.trim()) {
       setProductError('Le nom du produit est obligatoire.');
       return;
     }
-    if (editingProduct.price === undefined || editingProduct.price === null || Number(editingProduct.price) < 0) {
+    if (editingProduct.price === undefined || editingProduct.price === null || isNaN(Number(editingProduct.price))) {
       setProductError('Veuillez renseigner un prix de vente valide.');
       return;
     }
@@ -445,19 +462,15 @@ export default function StoreAdmin() {
         .filter((s) => s.length > 0)
         .slice(0, 10);
 
-      // Match brand_id and category_id
-      const brandObj = brands.find(
-        (b) => b.name.toLowerCase() === editingProduct.brand_name?.toLowerCase()
-      );
-      const catObj = categories.find(
-        (c) => c.slug.toLowerCase() === editingProduct.category_slug?.toLowerCase()
-      );
+      const brandVal = editingProduct.brand_name || editingProduct.brand || (brands[0]?.name ?? 'CROWN');
+      const catSlug = editingProduct.category_slug || (categories[0]?.slug ?? 'outillage-electroportatif');
 
       await saveDbProduct({
         ...editingProduct,
         slug,
-        brand_id: brandObj?.id,
-        category_id: catObj?.id,
+        brand: brandVal,
+        brand_name: brandVal,
+        category_slug: catSlug,
         images: finalImages,
         specs: cleanSpecs,
       });
@@ -466,6 +479,7 @@ export default function StoreAdmin() {
       showToast('Produit enregistré avec succès !');
       await loadProducts();
     } catch (err: any) {
+      console.error('Save product error:', err);
       setProductError(err.message || 'Erreur lors de l’enregistrement du produit.');
     } finally {
       setProductSaving(false);
@@ -946,6 +960,16 @@ export default function StoreAdmin() {
 
               <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
                 <button
+                  onClick={handleSeedProducts}
+                  disabled={seeding}
+                  className="border border-[var(--ed-line)] bg-slate-50 hover:bg-slate-100 text-[var(--ed-ink)] text-xs font-semibold px-3 py-2.5 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Importer les 10 produits du catalogue KADYA DZ"
+                >
+                  <RefreshCw size={13} className={seeding ? 'animate-spin' : ''} />
+                  <span>{seeding ? 'Importation...' : 'Importer les 10 produits par défaut'}</span>
+                </button>
+
+                <button
                   onClick={loadProducts}
                   className="p-2 border border-slate-200 text-slate-500 hover:text-[var(--ed-ink)] hover:bg-slate-50 transition-colors"
                   title="Rafraîchir"
@@ -1034,11 +1058,30 @@ export default function StoreAdmin() {
                   <div className="bg-white border border-[var(--ed-line)] p-12 text-center text-slate-400">
                     <Package size={40} className="mx-auto mb-3 opacity-40" />
                     <p className="font-semibold text-slate-700">Aucun produit trouvé</p>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
                       {products.length === 0
-                        ? 'Cliquez sur "Nouveau Produit" pour créer votre premier article.'
+                        ? 'Vous pouvez créer un nouveau produit manuellement ou importer les 10 produits du catalogue en un clic.'
                         : 'Aucun produit ne correspond aux critères de recherche.'}
                     </p>
+                    {products.length === 0 && (
+                      <div className="mt-5 flex justify-center gap-3">
+                        <button
+                          onClick={handleSeedProducts}
+                          disabled={seeding}
+                          className="bg-[var(--ed-yellow)] hover:bg-[var(--ed-ink)] hover:text-white text-[var(--ed-ink)] text-xs font-bold px-4 py-2.5 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <RefreshCw size={14} className={seeding ? 'animate-spin' : ''} />
+                          <span>Importer les 10 produits du catalogue</span>
+                        </button>
+                        <button
+                          onClick={handleOpenAddProduct}
+                          className="border border-[var(--ed-line)] bg-white hover:bg-slate-50 text-[var(--ed-ink)] text-xs font-bold px-4 py-2.5 flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <Plus size={14} />
+                          <span>Nouveau produit</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               }
@@ -1962,28 +2005,36 @@ export default function StoreAdmin() {
               </div>
 
               {/* Modal Footer Actions */}
-              <div className="pt-5 border-t border-slate-100 flex items-center justify-end gap-3 sticky bottom-0 bg-white py-3">
-                <button
-                  type="button"
-                  onClick={() => setIsProductModalOpen(false)}
-                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={productSaving}
-                  className="px-6 py-2.5 bg-[var(--ed-yellow)] hover:bg-[var(--ed-ink)] hover:text-white text-[var(--ed-ink)] text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
-                >
-                  {productSaving ? (
-                    <>
-                      <RefreshCw size={14} className="animate-spin" />
-                      <span>Téléversement et enregistrement...</span>
-                    </>
-                  ) : (
-                    <span>Enregistrer le produit</span>
-                  )}
-                </button>
+              <div className="pt-4 border-t border-slate-100 sticky bottom-0 bg-white py-3">
+                {productError && (
+                  <div className="mb-3 p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2 rounded">
+                    <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                    <span>{productError}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsProductModalOpen(false)}
+                    className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={productSaving}
+                    className="px-6 py-2.5 bg-[var(--ed-yellow)] hover:bg-[var(--ed-ink)] hover:text-white text-[var(--ed-ink)] text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
+                  >
+                    {productSaving ? (
+                      <>
+                        <RefreshCw size={14} className="animate-spin" />
+                        <span>Téléversement et enregistrement...</span>
+                      </>
+                    ) : (
+                      <span>Enregistrer le produit</span>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

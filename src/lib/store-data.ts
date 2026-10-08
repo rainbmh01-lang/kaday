@@ -1,5 +1,13 @@
 import { supabase } from '@/lib/supabase';
-import { categories as defaultCategories, type CatalogLink } from '@/data/store';
+import {
+  categories as defaultCategories,
+  products as defaultStoreProducts,
+  type CatalogLink,
+  type Product,
+} from '@/data/store';
+
+export const isValidUuid = (val?: string | null): boolean =>
+  Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
 
 export interface DbCategory {
   id: string;
@@ -300,8 +308,7 @@ export interface DbProduct {
   name: string;
   slug: string;
   summary?: string;
-  brand_id?: string;
-  category_id?: string;
+  brand?: string;
   brand_name?: string;
   category_slug?: string;
   price: number;
@@ -311,16 +318,17 @@ export interface DbProduct {
   images: string[];
   is_active: boolean;
   in_stock: boolean;
+  sort_order?: number;
   created_at?: string;
-  updated_at?: string;
 }
 
-// Fetch products from Supabase
+// Fetch products from Supabase with fallback to default store products
 export async function getDbProducts(includeInactive = false): Promise<DbProduct[]> {
   try {
     let query = supabase
       .from('products')
       .select('*')
+      .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false });
 
     if (!includeInactive) {
@@ -332,17 +340,78 @@ export async function getDbProducts(includeInactive = false): Promise<DbProduct[
       console.error('Error fetching products:', error);
       return [];
     }
-    return (data || []).map((p: any) => ({
-      ...p,
-      specs: Array.isArray(p.specs) ? p.specs : [],
-      images: Array.isArray(p.images) ? p.images : [],
-      price: Number(p.price) || 0,
-      old_price: p.old_price ? Number(p.old_price) : undefined,
+
+    if (data && data.length > 0) {
+      return data.map((p: any) => ({
+        ...p,
+        brand: p.brand || '',
+        brand_name: p.brand || '',
+        category_slug: p.category_slug || '',
+        specs: Array.isArray(p.specs) ? p.specs : [],
+        images: Array.isArray(p.images) ? p.images : [],
+        price: Number(p.price) || 0,
+        old_price: p.old_price ? Number(p.old_price) : undefined,
+      }));
+    }
+
+    // Fallback: If database currently has 0 products, return default store products
+    // so they are visible and manageable right away!
+    return defaultStoreProducts.map((p, idx) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      summary: p.summary,
+      brand: p.brand,
+      brand_name: p.brand,
+      category_slug: p.category,
+      price: p.price,
+      old_price: p.oldPrice,
+      tech_summary: p.summary,
+      specs: p.specs || [],
+      images: p.imageUrl ? [p.imageUrl] : [],
+      is_active: true,
+      in_stock: p.stock === 'En stock',
+      sort_order: idx + 1,
     }));
   } catch (err) {
     console.error('Error in getDbProducts:', err);
     return [];
   }
+}
+
+// Seed initial products into Supabase
+export async function seedInitialProducts(): Promise<DbProduct[]> {
+  const payloads = defaultStoreProducts.map((p, idx) => ({
+    name: p.name,
+    slug: p.slug,
+    summary: p.summary || '',
+    brand: p.brand,
+    category_slug: p.category,
+    price: p.price,
+    old_price: p.oldPrice || null,
+    in_stock: p.stock === 'En stock',
+    images: p.imageUrl ? [p.imageUrl] : [],
+    tech_summary: p.summary || '',
+    specs: p.specs || [],
+    is_active: true,
+    sort_order: idx + 1,
+  }));
+
+  const { data, error } = await supabase
+    .from('products')
+    .upsert(payloads, { onConflict: 'slug' })
+    .select();
+
+  if (error) throw error;
+  return (data || []).map((p: any) => ({
+    ...p,
+    brand: p.brand || '',
+    brand_name: p.brand || '',
+    specs: Array.isArray(p.specs) ? p.specs : [],
+    images: Array.isArray(p.images) ? p.images : [],
+    price: Number(p.price) || 0,
+    old_price: p.old_price ? Number(p.old_price) : undefined,
+  }));
 }
 
 // Upload product image to Supabase Storage
@@ -368,27 +437,24 @@ export async function uploadProductImage(file: File, slug: string, index: number
   return data.publicUrl;
 }
 
-// Save or update product
-const isValidUuid = (val?: string | null): boolean =>
-  Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
-
+// Save or update product (Strictly matching Postgres schema columns)
 export async function saveDbProduct(product: Partial<DbProduct>): Promise<DbProduct> {
+  const brandVal = product.brand || product.brand_name || '';
+
   const payload: any = {
     name: product.name,
     slug: product.slug,
     summary: product.summary || '',
-    brand_id: isValidUuid(product.brand_id) ? product.brand_id : null,
-    category_id: isValidUuid(product.category_id) ? product.category_id : null,
-    brand_name: product.brand_name || null,
+    brand: brandVal || null,
     category_slug: product.category_slug || null,
     price: Number(product.price) || 0,
     old_price: product.old_price ? Number(product.old_price) : null,
+    in_stock: product.in_stock ?? true,
+    images: Array.isArray(product.images) ? product.images.slice(0, 5) : [],
     tech_summary: product.tech_summary || '',
     specs: Array.isArray(product.specs) ? product.specs.slice(0, 10) : [],
-    images: Array.isArray(product.images) ? product.images.slice(0, 5) : [],
     is_active: product.is_active ?? true,
-    in_stock: product.in_stock ?? true,
-    updated_at: new Date().toISOString(),
+    sort_order: product.sort_order ?? 0,
   };
 
   const isUuid = isValidUuid(product.id);
@@ -404,6 +470,7 @@ export async function saveDbProduct(product: Partial<DbProduct>): Promise<DbProd
     if (error) throw error;
     return {
       ...data,
+      brand_name: data.brand,
       specs: Array.isArray(data.specs) ? data.specs : [],
       images: Array.isArray(data.images) ? data.images : [],
     };
@@ -425,6 +492,7 @@ export async function saveDbProduct(product: Partial<DbProduct>): Promise<DbProd
       if (error) throw error;
       return {
         ...data,
+        brand_name: data.brand,
         specs: Array.isArray(data.specs) ? data.specs : [],
         images: Array.isArray(data.images) ? data.images : [],
       };
@@ -440,6 +508,7 @@ export async function saveDbProduct(product: Partial<DbProduct>): Promise<DbProd
     if (error) throw error;
     return {
       ...data,
+      brand_name: data.brand,
       specs: Array.isArray(data.specs) ? data.specs : [],
       images: Array.isArray(data.images) ? data.images : [],
     };
@@ -448,10 +517,21 @@ export async function saveDbProduct(product: Partial<DbProduct>): Promise<DbProd
 
 // Delete product
 export async function deleteDbProduct(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('products')
-    .delete()
-    .eq('id', id);
+  const isUuid = isValidUuid(id);
+  if (isUuid) {
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', id);
 
-  if (error) throw error;
+    if (error) throw error;
+  } else {
+    // Try delete by slug if id was slug
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('slug', id);
+
+    if (error) throw error;
+  }
 }
