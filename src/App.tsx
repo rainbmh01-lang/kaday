@@ -261,10 +261,8 @@ function Home() {
     {/* Section Catégories avec aperçu partiel et expansion au clic */}
     <section className="mx-auto max-w-[1440px] px-5 py-16 md:py-20">
       <SectionHeading
-        eyebrow="Trouvez votre terrain"
-        title="Une entrée par besoin."
+        title="Toutes les catégories"
         sub="Pas besoin de connaître la référence. Commencez par votre métier, votre univers ou votre prochain chantier."
-        action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)]" data-testid="link-categories-all">Toutes les catégories <ArrowRight size={16} /></Link>}
       />
       <div className="relative">
         <div

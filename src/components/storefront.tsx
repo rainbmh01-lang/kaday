@@ -261,8 +261,8 @@ export function TrustStrip() {
   return <div className="border-y border-[var(--ed-line)] bg-white"><div className="mx-auto grid max-w-[1440px] divide-y divide-[var(--ed-line)] md:grid-cols-4 md:divide-x md:divide-y-0">{items.map(([Item, title, sub]) => <div key={title as string} className="flex items-center gap-3 px-5 py-5"><Item size={20} className="shrink-0 text-[var(--ed-rust)]" /><div><p className="text-sm font-bold text-[var(--ed-ink)]">{title as string}</p><p className="mt-0.5 text-xs text-slate-500">{sub as string}</p></div></div>)}</div></div>;
 }
 
-export function SectionHeading({ eyebrow, title, sub, action }: { eyebrow: string; title: string; sub?: string; action?: React.ReactNode }) {
-  return <div className="mb-7 flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="ed-mono mb-2 text-[10px] font-semibold uppercase tracking-[.2em] text-[var(--ed-rust)]">{eyebrow}</p><h2 className="ed-display text-4xl font-bold leading-none text-[var(--ed-ink)] md:text-5xl">{title}</h2>{sub && <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">{sub}</p>}</div>{action}</div>;
+export function SectionHeading({ eyebrow, title, sub, action }: { eyebrow?: string; title: string; sub?: string; action?: React.ReactNode }) {
+  return <div className="mb-7 flex flex-col justify-between gap-4 md:flex-row md:items-end"><div>{eyebrow && <p className="ed-mono mb-2 text-[10px] font-semibold uppercase tracking-[.2em] text-[var(--ed-rust)]">{eyebrow}</p>}<h2 className="ed-display text-4xl font-bold leading-none text-[var(--ed-ink)] md:text-5xl">{title}</h2>{sub && <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">{sub}</p>}</div>{action}</div>;
 }
 
 export function CategoryTile({ category }: { category: CatalogLink & { imageUrl?: string; image_url?: string } }) {
