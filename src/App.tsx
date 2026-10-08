@@ -446,11 +446,9 @@ function CategoryPage() {
   if (!category) return <NotFound />;
   return (
     <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
-      <Breadcrumbs items={[{ label: 'Boutique', href: '/shop' }, { label: category.label }]} />
-      <div className="flex flex-col justify-between gap-4 border-b border-[var(--ed-line)] pb-6 pt-2 md:flex-row md:items-end">
+      <div className="flex flex-col justify-between gap-4 border-b border-[var(--ed-line)] pb-6 md:flex-row md:items-end">
         <div>
-          <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Catégorie</p>
-          <h1 className="ed-display mt-2 text-5xl md:text-6xl font-bold leading-none text-[var(--ed-ink)]">{category.label}</h1>
+          <h1 className="ed-display text-5xl md:text-6xl font-bold leading-none text-[var(--ed-ink)]">{category.label}</h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{category.sub ? `${category.sub}. ` : ''}Des solutions choisies pour les exigences du chantier, de l’atelier et de la maintenance.</p>
         </div>
         <Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)]" data-testid="link-category-all">
