@@ -583,6 +583,7 @@ function ProductPage() {
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
+              onTouchCancel={handleTouchEnd}
             >
               <div
                 className="flex transition-transform duration-500 ease-out aspect-square w-full max-w-[320px] sm:max-w-[360px] mx-auto md:max-w-none md:min-h-[380px]"
