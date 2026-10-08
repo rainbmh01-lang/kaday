@@ -25,6 +25,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Star,
+  Tag,
   Truck,
   UserRound,
   X,
@@ -63,7 +64,7 @@ import {
 import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
 import StoreAdmin from '@/pages/store-admin';
-import { getDbCategories } from '@/lib/store-data';
+import { getDbCategories, getDbBrands, type DbBrand } from '@/lib/store-data';
 import heroWorkshop from '@/assets/edengroupes-workshop-hero.jpg';
 import {
   trackPageView,
@@ -189,8 +190,10 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
   const [brand, setBrand] = useState<string>();
   const [sort, setSort] = useState('featured');
   const [liveCategories, setLiveCategories] = useState<any[]>(categories);
+  const [liveBrands, setLiveBrands] = useState<DbBrand[]>([]);
   const { favorites, addToCart, toggleFavorite } = useStore();
   const [mobileFilters, setMobileFilters] = useState(false);
+  const [mobileBrandsOpen, setMobileBrandsOpen] = useState(false);
 
   useEffect(() => {
     getDbCategories().then((cats) => {
@@ -210,13 +213,161 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
         );
       }
     });
+
+    getDbBrands().then((brs) => {
+      if (brs && brs.length > 0) {
+        setLiveBrands(brs.filter((b) => b.is_active));
+      }
+    });
   }, []);
 
+  const currentBrandList = liveBrands.length > 0 ? liveBrands.map((b) => b.name) : brands;
+
   const filtered = useMemo(() => {
-    const list = products.filter((product) => (!category || product.category === category) && (!brand || product.brand === brand) && (mode !== 'promotions' || product.oldPrice));
+    const list = products.filter((product) => (!category || product.category === category) && (!brand || product.brand.toLowerCase() === brand.toLowerCase()) && (mode !== 'promotions' || product.oldPrice));
     return [...list].sort((a, b) => sort === 'price-low' ? a.price - b.price : sort === 'price-high' ? b.price - a.price : b.rating - a.rating);
   }, [category, brand, sort, mode]);
-  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: mode === 'promotions' ? 'Promotions' : 'Boutique' }]} /><div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-7 md:flex-row md:items-end"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">{mode === 'promotions' ? 'Prix atelier' : 'Catalogue KADYA DZ'}</p><h1 className="ed-display mt-2 text-6xl font-bold leading-none text-[var(--ed-ink)]">{mode === 'promotions' ? 'Les promotions.' : 'Tout pour travailler.'}</h1><p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{mode === 'promotions' ? 'Les offres courtes sur les références qui font vraiment la différence au quotidien.' : 'Outillage, atelier, mesure, électricité, sécurité et plus. Filtrez par univers ou cherchez une marque.'}</p></div><div className="flex gap-2"><button onClick={() => setMobileFilters(!mobileFilters)} className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm font-semibold lg:hidden" data-testid="button-mobile-filters"><SlidersHorizontal size={15} /> Filtres</button><label className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm"><ArrowDownUp size={14} className="text-slate-400" /><select value={sort} onChange={(event) => setSort(event.target.value)} className="bg-transparent outline-none" data-testid="select-sort"><option value="featured">Pertinence</option><option value="price-low">Prix croissant</option><option value="price-high">Prix décroissant</option></select></label></div></div><div className={`mt-8 ${mobileFilters ? 'block' : 'hidden'} border border-[var(--ed-line)] bg-white p-4 lg:hidden`}><p className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par catégorie</p><div className="mt-3 flex flex-wrap gap-2">{liveCategories.map((cat) => <button key={cat.slug} onClick={() => setCategory(category === cat.slug ? undefined : cat.slug)} className={`px-3 py-2 text-xs font-semibold ${category === cat.slug ? 'bg-[var(--ed-rust)] text-white' : 'bg-slate-100 text-slate-600'}`} data-testid={`button-mobile-category-${cat.slug}`}>{cat.label}</button>)}</div><p className="ed-mono mt-5 text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par marque</p><div className="mt-3 flex flex-wrap gap-2">{brands.map((item) => <button key={item} onClick={() => setBrand(brand === item ? undefined : item)} className={`px-3 py-2 text-xs font-semibold ${brand === item ? 'bg-[var(--ed-ink)] text-white' : 'bg-slate-100 text-slate-600'}`} data-testid={`button-mobile-brand-${item}`}>{item}</button>)}</div></div><div className="mt-8 flex gap-10"><FilterRail activeCategory={category} onCategory={setCategory} activeBrand={brand} onBrand={setBrand} categoriesList={liveCategories} /><div className="min-w-0 flex-1"><div className="mb-5 flex items-center justify-between"><span className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">{filtered.length} références affichées</span>{(category || brand) && <button onClick={() => { setCategory(undefined); setBrand(undefined); }} className="text-xs font-semibold text-[var(--ed-rust)] underline" data-testid="button-clear-filters">Effacer les filtres</button>}</div><ProductGrid items={filtered} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div></div>;
+
+  return (
+    <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
+      <Breadcrumbs items={[{ label: mode === 'promotions' ? 'Promotions' : 'Boutique' }]} />
+      <div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-7 md:flex-row md:items-end">
+        <div>
+          <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">{mode === 'promotions' ? 'Prix atelier' : 'Catalogue KADYA DZ'}</p>
+          <h1 className="ed-display mt-2 text-6xl font-bold leading-none text-[var(--ed-ink)]">{mode === 'promotions' ? 'Les promotions.' : 'Tout pour travailler.'}</h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{mode === 'promotions' ? 'Les offres courtes sur les références qui font vraiment la différence au quotidien.' : 'Outillage, atelier, mesure, électricité, sécurité et plus. Filtrez par univers ou cherchez une marque.'}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => {
+              setMobileFilters(!mobileFilters);
+              setMobileBrandsOpen(false);
+            }}
+            className={`flex items-center gap-2 border border-[var(--ed-line)] px-3 py-2 text-sm font-semibold lg:hidden ${mobileFilters ? 'bg-[var(--ed-rust)] text-white' : 'bg-white'}`}
+            data-testid="button-mobile-filters"
+          >
+            <SlidersHorizontal size={15} /> Filtres
+          </button>
+          <button
+            onClick={() => {
+              setMobileBrandsOpen(!mobileBrandsOpen);
+              setMobileFilters(false);
+            }}
+            className={`flex items-center gap-2 border border-[var(--ed-line)] px-3 py-2 text-sm font-semibold lg:hidden ${mobileBrandsOpen || brand ? 'bg-[var(--ed-ink)] text-white' : 'bg-white'}`}
+            data-testid="button-mobile-brands"
+          >
+            <Tag size={15} /> {brand ? brand : 'Marques'}
+          </button>
+          <label className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-sm">
+            <ArrowDownUp size={14} className="text-slate-400" />
+            <select value={sort} onChange={(event) => setSort(event.target.value)} className="bg-transparent outline-none" data-testid="select-sort">
+              <option value="featured">Pertinence</option>
+              <option value="price-low">Prix croissant</option>
+              <option value="price-high">Prix décroissant</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      {/* Mobile Brands Drawer */}
+      {mobileBrandsOpen && (
+        <div className="mt-6 border border-[var(--ed-line)] bg-white p-4 shadow-sm lg:hidden animate-in fade-in">
+          <div className="flex items-center justify-between border-b border-[var(--ed-line)] pb-3">
+            <p className="ed-mono text-[10px] uppercase tracking-[.18em] font-bold text-slate-600">Sélectionner une marque</p>
+            {brand && (
+              <button
+                onClick={() => setBrand(undefined)}
+                className="text-xs font-semibold text-[var(--ed-rust)] underline"
+              >
+                Toutes les marques
+              </button>
+            )}
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {currentBrandList.map((brandName) => {
+              const isSelected = brand?.toLowerCase() === brandName.toLowerCase();
+              return (
+                <button
+                  key={brandName}
+                  onClick={() => {
+                    setBrand(isSelected ? undefined : brandName);
+                    setMobileBrandsOpen(false);
+                  }}
+                  className={`flex items-center justify-between border p-2.5 text-xs font-semibold transition-all ${
+                    isSelected
+                      ? 'border-[var(--ed-ink)] bg-[var(--ed-ink)] text-white shadow-xs'
+                      : 'border-[var(--ed-line)] bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="truncate">{brandName}</span>
+                  {isSelected && <Check size={12} className="shrink-0 text-[var(--ed-yellow)]" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Filters Drawer */}
+      <div className={`mt-6 ${mobileFilters ? 'block' : 'hidden'} border border-[var(--ed-line)] bg-white p-4 lg:hidden`}>
+        <p className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par catégorie</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {liveCategories.map((cat) => (
+            <button
+              key={cat.slug}
+              onClick={() => setCategory(category === cat.slug ? undefined : cat.slug)}
+              className={`px-3 py-2 text-xs font-semibold ${category === cat.slug ? 'bg-[var(--ed-rust)] text-white' : 'bg-slate-100 text-slate-600'}`}
+              data-testid={`button-mobile-category-${cat.slug}`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+        <p className="ed-mono mt-5 text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par marque</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {currentBrandList.map((item) => (
+            <button
+              key={item}
+              onClick={() => setBrand(brand === item ? undefined : item)}
+              className={`px-3 py-2 text-xs font-semibold ${brand === item ? 'bg-[var(--ed-ink)] text-white' : 'bg-slate-100 text-slate-600'}`}
+              data-testid={`button-mobile-brand-${item}`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-8 flex gap-10">
+        <FilterRail
+          activeCategory={category}
+          onCategory={setCategory}
+          activeBrand={brand}
+          onBrand={setBrand}
+          categoriesList={liveCategories}
+          brandsList={currentBrandList}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="mb-5 flex items-center justify-between">
+            <span className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">{filtered.length} références affichées</span>
+            {(category || brand) && (
+              <button
+                onClick={() => {
+                  setCategory(undefined);
+                  setBrand(undefined);
+                }}
+                className="text-xs font-semibold text-[var(--ed-rust)] underline"
+                data-testid="button-clear-filters"
+              >
+                Effacer les filtres
+              </button>
+            )}
+          </div>
+          <ProductGrid items={filtered} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function CategoryPage() {
@@ -247,11 +398,38 @@ function CategoryPage() {
 
 function BrandPage() {
   const { brand: brandParam } = useParams<{ brand: string }>();
-  const brand = findBrand(brandParam);
+  const [currentBrand, setCurrentBrand] = useState<string>(() => findBrand(brandParam) || brandParam || '');
   const { favorites, addToCart, toggleFavorite } = useStore();
   const items = products.filter((product) => product.brand.toLowerCase() === brandParam?.toLowerCase());
-  if (!brand) return <NotFound />;
-  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Marques', href: '/brands' }, { label: brand }]} /><div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-8 md:flex-row md:items-end"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Marque disponible en Algérie</p><h1 className="ed-display mt-2 text-8xl font-extrabold leading-[.8] text-[var(--ed-ink)]">{brand}</h1><p className="mt-5 max-w-lg text-sm leading-6 text-slate-500">Une sélection KADYA DZ pour équiper l’atelier avec des références fiables, lisibles et au bon prix.</p></div><Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)]" data-testid="link-brand-back-shop">Retour au catalogue <ArrowRight size={16} /></Link></div><div className="mt-10"><ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div>;
+
+  useEffect(() => {
+    getDbBrands().then((brs) => {
+      const match = brs.find((b) => b.name.toLowerCase() === brandParam?.toLowerCase() || b.slug.toLowerCase() === brandParam?.toLowerCase());
+      if (match) {
+        setCurrentBrand(match.name);
+      }
+    });
+  }, [brandParam]);
+
+  if (!currentBrand) return <NotFound />;
+  return (
+    <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
+      <Breadcrumbs items={[{ label: 'Marques', href: '/brands' }, { label: currentBrand }]} />
+      <div className="flex flex-col justify-between gap-5 border-b border-[var(--ed-line)] pb-8 md:flex-row md:items-end">
+        <div>
+          <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Marque disponible en Algérie</p>
+          <h1 className="ed-display mt-2 text-8xl font-extrabold leading-[.8] text-[var(--ed-ink)]">{currentBrand}</h1>
+          <p className="mt-5 max-w-lg text-sm leading-6 text-slate-500">Une sélection KADYA DZ pour équiper l’atelier avec des références fiables, lisibles et au bon prix.</p>
+        </div>
+        <Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)]" data-testid="link-brand-back-shop">
+          Retour au catalogue <ArrowRight size={16} />
+        </Link>
+      </div>
+      <div className="mt-10">
+        <ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} />
+      </div>
+    </div>
+  );
 }
 
 function ProfessionPage() {
@@ -423,7 +601,79 @@ function SearchPage() {
 
 function CollectionsPage({ type }: { type: 'brands' | 'professions' }) {
   const isBrands = type === 'brands';
-  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: isBrands ? 'Marques' : 'Par métier' }]} /><div className="border-b border-[var(--ed-line)] pb-8"><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">{isBrands ? 'Des marques qui ont fait leurs preuves' : 'Un point de départ plus direct'}</p><h1 className="ed-display mt-3 text-7xl font-bold leading-[.85] text-[var(--ed-ink)]">{isBrands ? 'Nos marques.' : 'Par métier.'}</h1><p className="mt-5 max-w-xl text-sm leading-6 text-slate-500">{isBrands ? 'CROWN, INGCO, BEETRO, HONESTPRO et les autres : sélectionnées pour leur disponibilité, leur rapport qualité-prix et leur utilité terrain.' : 'Maçon, mécanicien, électricien, soudeur : partez de votre quotidien pour trouver les bons essentiels plus vite.'}</p></div>{isBrands ? <div className="mt-10 grid gap-3 md:grid-cols-2">{brands.map((brand, index) => <Link key={brand} href={`/brand/${brand}`} className="ed-card group flex min-h-[180px] items-end justify-between border border-[var(--ed-line)] bg-white p-6" data-testid={`link-brand-${brand}`}><div><span className="ed-mono text-[10px] text-slate-400">0{index + 1} / 08</span><h2 className="ed-display mt-5 text-6xl font-bold text-[var(--ed-ink)]">{brand}</h2><p className="mt-1 text-xs text-slate-500">Voir la sélection disponible</p></div><ArrowRight className="text-[var(--ed-rust)] transition-transform group-hover:translate-x-1" /></Link>)}</div> : <div className="mt-10 grid gap-3 md:grid-cols-3">{professions.map((profession) => <Link key={profession.slug} href={`/profession/${profession.slug}`} className="ed-card border border-[var(--ed-line)] bg-white p-6" data-testid={`link-profession-${profession.slug}`}><div className="grid h-12 w-12 place-items-center bg-[var(--ed-ink)] text-[var(--ed-yellow)]"><Grid2X2 size={22} /></div><h2 className="ed-display mt-12 text-4xl font-bold text-[var(--ed-ink)]">{profession.label}</h2><p className="mt-2 text-xs text-slate-500">{profession.count}</p><span className="mt-7 flex items-center gap-2 text-xs font-bold text-[var(--ed-rust)]">Voir la sélection <ArrowRight size={14} /></span></Link>)}</div>}</div>;
+  const [liveBrands, setLiveBrands] = useState<DbBrand[]>([]);
+
+  useEffect(() => {
+    if (isBrands) {
+      getDbBrands().then((brs) => {
+        if (brs && brs.length > 0) {
+          setLiveBrands(brs.filter((b) => b.is_active));
+        }
+      });
+    }
+  }, [isBrands]);
+
+  const brandItems = liveBrands.length > 0 ? liveBrands.map((b) => b.name) : brands;
+
+  return (
+    <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
+      <Breadcrumbs items={[{ label: isBrands ? 'Marques' : 'Par métier' }]} />
+      <div className="border-b border-[var(--ed-line)] pb-8">
+        <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">
+          {isBrands ? 'Des marques qui ont fait leurs preuves' : 'Un point de départ plus direct'}
+        </p>
+        <h1 className="ed-display mt-3 text-7xl font-bold leading-[.85] text-[var(--ed-ink)]">
+          {isBrands ? 'Nos marques.' : 'Par métier.'}
+        </h1>
+        <p className="mt-5 max-w-xl text-sm leading-6 text-slate-500">
+          {isBrands
+            ? 'CROWN, INGCO, BEETRO, HONESTPRO et les autres : sélectionnées pour leur disponibilité, leur rapport qualité-prix et leur utilité terrain.'
+            : 'Maçon, mécanicien, électricien, soudeur : partez de votre quotidien pour trouver les bons essentiels plus vite.'}
+        </p>
+      </div>
+      {isBrands ? (
+        <div className="mt-10 grid gap-3 md:grid-cols-2">
+          {brandItems.map((brand, index) => (
+            <Link
+              key={brand}
+              href={`/brand/${brand}`}
+              className="ed-card group flex min-h-[180px] items-end justify-between border border-[var(--ed-line)] bg-white p-6"
+              data-testid={`link-brand-${brand}`}
+            >
+              <div>
+                <span className="ed-mono text-[10px] text-slate-400">
+                  {String(index + 1).padStart(2, '0')} / {String(brandItems.length).padStart(2, '0')}
+                </span>
+                <h2 className="ed-display mt-5 text-6xl font-bold text-[var(--ed-ink)]">{brand}</h2>
+                <p className="mt-1 text-xs text-slate-500">Voir la sélection disponible</p>
+              </div>
+              <ArrowRight className="text-[var(--ed-rust)] transition-transform group-hover:translate-x-1" />
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-10 grid gap-3 md:grid-cols-3">
+          {professions.map((profession) => (
+            <Link
+              key={profession.slug}
+              href={`/profession/${profession.slug}`}
+              className="ed-card border border-[var(--ed-line)] bg-white p-6"
+              data-testid={`link-profession-${profession.slug}`}
+            >
+              <div className="grid h-12 w-12 place-items-center bg-[var(--ed-ink)] text-[var(--ed-yellow)]">
+                <Grid2X2 size={22} />
+              </div>
+              <h2 className="ed-display mt-12 text-4xl font-bold text-[var(--ed-ink)]">{profession.label}</h2>
+              <p className="mt-2 text-xs text-slate-500">{profession.count}</p>
+              <span className="mt-7 flex items-center gap-2 text-xs font-bold text-[var(--ed-rust)]">
+                Voir la sélection <ArrowRight size={14} />
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CartPage() {

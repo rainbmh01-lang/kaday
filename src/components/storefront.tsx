@@ -321,8 +321,49 @@ export function Breadcrumbs({ items }: { items: { label: string; href?: string }
   return <div className="mb-5 flex flex-wrap items-center gap-2 text-xs text-slate-400"><Link href="/" className="hover:text-[var(--ed-rust)]" data-testid="link-breadcrumb-home">Accueil</Link>{items.map((item, index) => <span key={item.label} className="flex items-center gap-2"><ChevronRight size={12} />{item.href ? <Link href={item.href} className="hover:text-[var(--ed-rust)]" data-testid={`link-breadcrumb-${index}`}>{item.label}</Link> : <span className="text-slate-600">{item.label}</span>}</span>)}</div>;
 }
 
-export function FilterRail({ activeCategory, onCategory, activeBrand, onBrand }: { activeCategory?: string; onCategory: (value?: string) => void; activeBrand?: string; onBrand: (value?: string) => void }) {
-  return <aside className="hidden w-56 shrink-0 lg:block"><div className="sticky top-24 space-y-7"><div><p className="ed-mono mb-3 text-[10px] uppercase tracking-[.18em] text-slate-400">Catégories</p><div className="grid gap-1">{categories.map((cat) => <button key={cat.slug} onClick={() => onCategory(activeCategory === cat.slug ? undefined : cat.slug)} className={`flex items-center justify-between py-2 text-left text-sm ${activeCategory === cat.slug ? 'font-bold text-[var(--ed-rust)]' : 'text-slate-600 hover:text-[var(--ed-ink)]'}`} data-testid={`button-filter-category-${cat.slug}`}><span>{cat.label}</span><span className="ed-mono text-[10px] text-slate-400">{cat.count.split(' ')[0]}</span></button>)}</div></div><div className="border-t border-[var(--ed-line)] pt-6"><p className="ed-mono mb-3 text-[10px] uppercase tracking-[.18em] text-slate-400">Marques</p><div className="grid gap-1">{brands.map((brand) => <button key={brand} onClick={() => onBrand(activeBrand === brand ? undefined : brand)} className={`flex items-center gap-2 py-2 text-left text-sm ${activeBrand === brand ? 'font-bold text-[var(--ed-rust)]' : 'text-slate-600 hover:text-[var(--ed-ink)]'}`} data-testid={`button-filter-brand-${brand}`}><span className={`h-2 w-2 rounded-full ${activeBrand === brand ? 'bg-[var(--ed-rust)]' : 'bg-slate-300'}`} />{brand}</button>)}</div></div></div></aside>;
+export function FilterRail({ activeCategory, onCategory, activeBrand, onBrand, categoriesList, brandsList }: { activeCategory?: string; onCategory: (value?: string) => void; activeBrand?: string; onBrand: (value?: string) => void; categoriesList?: { slug: string; label: string; count?: string }[]; brandsList?: ({ name: string; slug?: string } | string)[] }) {
+  const catItems = categoriesList && categoriesList.length > 0 ? categoriesList : categories;
+  const rawBrandItems = brandsList && brandsList.length > 0 ? brandsList : brands;
+  const brandNames = rawBrandItems.map((b) => (typeof b === 'string' ? b : b.name));
+
+  return (
+    <aside className="hidden w-56 shrink-0 lg:block">
+      <div className="sticky top-24 space-y-7">
+        <div>
+          <p className="ed-mono mb-3 text-[10px] uppercase tracking-[.18em] text-slate-400">Catégories</p>
+          <div className="grid gap-1">
+            {catItems.map((cat) => (
+              <button
+                key={cat.slug}
+                onClick={() => onCategory(activeCategory === cat.slug ? undefined : cat.slug)}
+                className={`flex items-center justify-between py-2 text-left text-sm ${activeCategory === cat.slug ? 'font-bold text-[var(--ed-rust)]' : 'text-slate-600 hover:text-[var(--ed-ink)]'}`}
+                data-testid={`button-filter-category-${cat.slug}`}
+              >
+                <span>{cat.label}</span>
+                <span className="ed-mono text-[10px] text-slate-400">{(cat.count || '').split(' ')[0]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-[var(--ed-line)] pt-6">
+          <p className="ed-mono mb-3 text-[10px] uppercase tracking-[.18em] text-slate-400">Marques</p>
+          <div className="grid gap-1">
+            {brandNames.map((brandName) => (
+              <button
+                key={brandName}
+                onClick={() => onBrand(activeBrand === brandName ? undefined : brandName)}
+                className={`flex items-center gap-2 py-2 text-left text-sm ${activeBrand === brandName ? 'font-bold text-[var(--ed-rust)]' : 'text-slate-600 hover:text-[var(--ed-ink)]'}`}
+                data-testid={`button-filter-brand-${brandName}`}
+              >
+                <span className={`h-2 w-2 rounded-full ${activeBrand === brandName ? 'bg-[var(--ed-rust)]' : 'bg-slate-300'}`} />
+                {brandName}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
 }
 
 export function CartDrawer({ open, lines, onClose, onQuantity, onRemove }: { open: boolean; lines: CartLine[]; onClose: () => void; onQuantity: (id: string, quantity: number) => void; onRemove: (id: string) => void }) {
