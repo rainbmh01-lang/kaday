@@ -14,6 +14,7 @@ import {
   Clock3,
   Grid2X2,
   Heart,
+  Layers,
   ListFilter,
   MapPin,
   Minus,
@@ -64,7 +65,7 @@ import {
 import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
 import StoreAdmin from '@/pages/store-admin';
-import { getDbCategories, getDbBrands, getDbProducts, type DbBrand, type DbProduct } from '@/lib/store-data';
+import { getDbCategories, getDbBrands, getDbProducts, inferProductType, type DbBrand, type DbProduct } from '@/lib/store-data';
 import heroWorkshop from '@/assets/edengroupes-workshop-hero.jpg';
 import {
   trackPageView,
@@ -104,6 +105,7 @@ function mapDbProductToProduct(
     imageUrl: primaryImg,
     images: Array.isArray(p.images) && p.images.length > 0 ? p.images : (primaryImg ? [primaryImg] : []),
     techSummary: p.tech_summary,
+    productType: p.product_type || inferProductType(p.name, p.category_slug) || '',
   };
 }
 
@@ -266,10 +268,12 @@ function Home() {
 function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
   const [category, setCategory] = useState<string>();
   const [brand, setBrand] = useState<string>();
+  const [productType, setProductType] = useState<string>();
   const [sort, setSort] = useState('featured');
   const { favorites, addToCart, toggleFavorite, allProducts, liveCategories, liveBrands } = useStore();
   const [mobileFilters, setMobileFilters] = useState(false);
   const [mobileBrandsOpen, setMobileBrandsOpen] = useState(false);
+  const [mobileTypesOpen, setMobileTypesOpen] = useState(false);
 
   const currentBrandList = useMemo(() => {
     if (liveBrands.length > 0) {
@@ -279,15 +283,21 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
     return distinct.length > 0 ? distinct : brands;
   }, [liveBrands, allProducts]);
 
+  const currentTypeList = useMemo(() => {
+    const distinct = Array.from(new Set(allProducts.map((p) => p.productType).filter(Boolean))) as string[];
+    return distinct.sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [allProducts]);
+
   const filtered = useMemo(() => {
     const list = allProducts.filter((product) => {
       const matchCat = !category || product.category.toLowerCase() === category.toLowerCase() || (product.categoryLabel && product.categoryLabel.toLowerCase() === category.toLowerCase());
       const matchBrand = !brand || product.brand.toLowerCase() === brand.toLowerCase();
       const matchPromo = mode !== 'promotions' || Boolean(product.oldPrice && product.oldPrice > product.price);
-      return matchCat && matchBrand && matchPromo;
+      const matchType = !productType || (product.productType && product.productType.toLowerCase() === productType.toLowerCase());
+      return matchCat && matchBrand && matchPromo && matchType;
     });
     return [...list].sort((a, b) => sort === 'price-low' ? a.price - b.price : sort === 'price-high' ? b.price - a.price : b.rating - a.rating);
-  }, [allProducts, category, brand, sort, mode]);
+  }, [allProducts, category, brand, productType, sort, mode]);
 
   return (
     <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
@@ -296,23 +306,38 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
         <div>
           <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">{mode === 'promotions' ? 'Prix atelier' : 'Catalogue KADYA DZ'}</p>
           <h1 className="ed-display mt-2 text-6xl font-bold leading-none text-[var(--ed-ink)]">{mode === 'promotions' ? 'Les promotions.' : 'Tout pour travailler.'}</h1>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{mode === 'promotions' ? 'Les offres courtes sur les références qui font vraiment la différence au quotidien.' : 'Outillage, atelier, mesure, électricité, sécurité et plus. Filtrez par univers ou cherchez une marque.'}</p>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{mode === 'promotions' ? 'Les offres courtes sur les références qui font vraiment la différence au quotidien.' : 'Outillage, atelier, mesure, électricité, sécurité et plus. Filtrez par univers, type ou cherchez une marque.'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => {
               setMobileFilters(!mobileFilters);
               setMobileBrandsOpen(false);
+              setMobileTypesOpen(false);
             }}
             className={`flex items-center gap-2 border border-[var(--ed-line)] px-3 py-2 text-sm font-semibold lg:hidden ${mobileFilters ? 'bg-[var(--ed-rust)] text-white' : 'bg-white'}`}
             data-testid="button-mobile-filters"
           >
             <SlidersHorizontal size={15} /> Filtres
           </button>
+          {currentTypeList.length > 0 && (
+            <button
+              onClick={() => {
+                setMobileTypesOpen(!mobileTypesOpen);
+                setMobileFilters(false);
+                setMobileBrandsOpen(false);
+              }}
+              className={`flex items-center gap-2 border border-[var(--ed-line)] px-3 py-2 text-sm font-semibold lg:hidden ${mobileTypesOpen || productType ? 'bg-[var(--ed-rust)] text-white' : 'bg-white'}`}
+              data-testid="button-mobile-types"
+            >
+              <Layers size={15} /> {productType ? productType : 'Types'}
+            </button>
+          )}
           <button
             onClick={() => {
               setMobileBrandsOpen(!mobileBrandsOpen);
               setMobileFilters(false);
+              setMobileTypesOpen(false);
             }}
             className={`flex items-center gap-2 border border-[var(--ed-line)] px-3 py-2 text-sm font-semibold lg:hidden ${mobileBrandsOpen || brand ? 'bg-[var(--ed-ink)] text-white' : 'bg-white'}`}
             data-testid="button-mobile-brands"
@@ -329,6 +354,45 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
           </label>
         </div>
       </div>
+
+      {/* Mobile Types Drawer */}
+      {mobileTypesOpen && (
+        <div className="mt-6 border border-[var(--ed-line)] bg-white p-4 shadow-sm lg:hidden animate-in fade-in">
+          <div className="flex items-center justify-between border-b border-[var(--ed-line)] pb-3">
+            <p className="ed-mono text-[10px] uppercase tracking-[.18em] font-bold text-slate-600">Sélectionner un type d'équipement</p>
+            {productType && (
+              <button
+                onClick={() => setProductType(undefined)}
+                className="text-xs font-semibold text-[var(--ed-rust)] underline"
+              >
+                Tous les types
+              </button>
+            )}
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {currentTypeList.map((typeName) => {
+              const isSelected = productType?.toLowerCase() === typeName.toLowerCase();
+              return (
+                <button
+                  key={typeName}
+                  onClick={() => {
+                    setProductType(isSelected ? undefined : typeName);
+                    setMobileTypesOpen(false);
+                  }}
+                  className={`flex items-center justify-between border p-2.5 text-xs font-semibold transition-all ${
+                    isSelected
+                      ? 'border-[var(--ed-rust)] bg-[var(--ed-rust)] text-white shadow-xs'
+                      : 'border-[var(--ed-line)] bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="truncate">{typeName}</span>
+                  {isSelected && <Check size={12} className="shrink-0 text-white" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Mobile Brands Drawer */}
       {mobileBrandsOpen && (
@@ -384,6 +448,23 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
             </button>
           ))}
         </div>
+        {currentTypeList.length > 0 && (
+          <>
+            <p className="ed-mono mt-5 text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par type</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {currentTypeList.map((item) => (
+                <button
+                  key={item}
+                  onClick={() => setProductType(productType === item ? undefined : item)}
+                  className={`px-3 py-2 text-xs font-semibold ${productType === item ? 'bg-[var(--ed-rust)] text-white' : 'bg-slate-100 text-slate-600'}`}
+                  data-testid={`button-mobile-type-${item}`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         <p className="ed-mono mt-5 text-[10px] uppercase tracking-[.18em] text-slate-400">Filtrer par marque</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {currentBrandList.map((item) => (
@@ -405,17 +486,31 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
           onCategory={setCategory}
           activeBrand={brand}
           onBrand={setBrand}
+          activeType={productType}
+          onType={setProductType}
           categoriesList={liveCategories}
           brandsList={currentBrandList}
+          typesList={currentTypeList}
         />
         <div className="min-w-0 flex-1">
-          <div className="mb-5 flex items-center justify-between">
-            <span className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">{filtered.length} références affichées</span>
-            {(category || brand) && (
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="ed-mono text-[10px] uppercase tracking-[.18em] text-slate-400">{filtered.length} références affichées</span>
+              {productType && (
+                <span className="inline-flex items-center gap-1.5 bg-[var(--ed-rust)] text-white px-2.5 py-1 text-xs font-semibold">
+                  Type : {productType}
+                  <button onClick={() => setProductType(undefined)} className="hover:text-[var(--ed-yellow)] cursor-pointer" title="Supprimer le filtre de type">
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+            </div>
+            {(category || brand || productType) && (
               <button
                 onClick={() => {
                   setCategory(undefined);
                   setBrand(undefined);
+                  setProductType(undefined);
                 }}
                 className="text-xs font-semibold text-[var(--ed-rust)] underline"
                 data-testid="button-clear-filters"
@@ -437,9 +532,11 @@ function CategoryPage() {
   const category = liveCategories.find((c) => c.slug.toLowerCase() === slug?.toLowerCase()) || findCategory(slug);
 
   const [brand, setBrand] = useState<string>();
+  const [productType, setProductType] = useState<string>();
   const [sort, setSort] = useState('featured');
   const [mobileFilters, setMobileFilters] = useState(false);
   const [mobileBrandsOpen, setMobileBrandsOpen] = useState(false);
+  const [mobileTypesOpen, setMobileTypesOpen] = useState(false);
 
   const currentBrandList = useMemo(() => {
     if (liveBrands.length > 0) {
@@ -449,13 +546,25 @@ function CategoryPage() {
     return distinct.length > 0 ? distinct : brands;
   }, [liveBrands, allProducts]);
 
+  const categoryTypes = useMemo(() => {
+    const catProds = allProducts.filter((product) => {
+      return (
+        product.category.toLowerCase() === slug?.toLowerCase() ||
+        (product.categoryLabel && product.categoryLabel.toLowerCase() === slug?.toLowerCase())
+      );
+    });
+    const distinct = Array.from(new Set(catProds.map((p) => p.productType).filter(Boolean))) as string[];
+    return distinct.sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [allProducts, slug]);
+
   const items = useMemo(() => {
     const list = allProducts.filter((product) => {
       const matchCat =
         product.category.toLowerCase() === slug?.toLowerCase() ||
         (product.categoryLabel && product.categoryLabel.toLowerCase() === slug?.toLowerCase());
       const matchBrand = !brand || product.brand.toLowerCase() === brand.toLowerCase();
-      return matchCat && matchBrand;
+      const matchType = !productType || (product.productType && product.productType.toLowerCase() === productType.toLowerCase());
+      return matchCat && matchBrand && matchType;
     });
 
     return [...list].sort((a, b) => {
@@ -463,7 +572,7 @@ function CategoryPage() {
       if (sort === 'price-high') return b.price - a.price;
       return b.rating - a.rating;
     });
-  }, [allProducts, slug, brand, sort]);
+  }, [allProducts, slug, brand, productType, sort]);
 
   if (!category) return <NotFound />;
   return (
@@ -478,6 +587,7 @@ function CategoryPage() {
             onClick={() => {
               setMobileFilters(!mobileFilters);
               setMobileBrandsOpen(false);
+              setMobileTypesOpen(false);
             }}
             className={`flex items-center gap-2 border border-[var(--ed-line)] px-3 py-2 text-xs sm:text-sm font-semibold transition-all shadow-xs ${
               mobileFilters ? 'bg-[var(--ed-rust)] text-white' : 'bg-white hover:bg-slate-50 text-[var(--ed-ink)]'
@@ -486,10 +596,26 @@ function CategoryPage() {
           >
             <SlidersHorizontal size={15} /> Filtres
           </button>
+          {categoryTypes.length > 0 && (
+            <button
+              onClick={() => {
+                setMobileTypesOpen(!mobileTypesOpen);
+                setMobileFilters(false);
+                setMobileBrandsOpen(false);
+              }}
+              className={`flex items-center gap-2 border border-[var(--ed-line)] px-3 py-2 text-xs sm:text-sm font-semibold transition-all shadow-xs ${
+                mobileTypesOpen || productType ? 'bg-[var(--ed-rust)] text-white' : 'bg-white hover:bg-slate-50 text-[var(--ed-ink)]'
+              }`}
+              data-testid="button-category-types"
+            >
+              <Layers size={15} /> {productType ? productType : 'Types'}
+            </button>
+          )}
           <button
             onClick={() => {
               setMobileBrandsOpen(!mobileBrandsOpen);
               setMobileFilters(false);
+              setMobileTypesOpen(false);
             }}
             className={`flex items-center gap-2 border border-[var(--ed-line)] px-3 py-2 text-xs sm:text-sm font-semibold transition-all shadow-xs ${
               mobileBrandsOpen || brand ? 'bg-[var(--ed-ink)] text-white' : 'bg-white hover:bg-slate-50 text-[var(--ed-ink)]'
@@ -513,6 +639,45 @@ function CategoryPage() {
           </label>
         </div>
       </div>
+
+      {/* Types Drawer */}
+      {mobileTypesOpen && (
+        <div className="mt-6 border border-[var(--ed-line)] bg-white p-4 shadow-sm animate-in fade-in">
+          <div className="flex items-center justify-between border-b border-[var(--ed-line)] pb-3">
+            <p className="ed-mono text-[10px] uppercase tracking-[.18em] font-bold text-slate-600">Sélectionner un type d'équipement</p>
+            {productType && (
+              <button
+                onClick={() => setProductType(undefined)}
+                className="text-xs font-semibold text-[var(--ed-rust)] underline"
+              >
+                Tous les types
+              </button>
+            )}
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+            {categoryTypes.map((typeName) => {
+              const isSelected = productType?.toLowerCase() === typeName.toLowerCase();
+              return (
+                <button
+                  key={typeName}
+                  onClick={() => {
+                    setProductType(isSelected ? undefined : typeName);
+                    setMobileTypesOpen(false);
+                  }}
+                  className={`flex items-center justify-between border p-2.5 text-xs font-semibold transition-all ${
+                    isSelected
+                      ? 'border-[var(--ed-rust)] bg-[var(--ed-rust)] text-white shadow-xs'
+                      : 'border-[var(--ed-line)] bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="truncate">{typeName}</span>
+                  {isSelected && <Check size={12} className="shrink-0 text-white" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Brands Drawer */}
       {mobileBrandsOpen && (
@@ -584,22 +749,39 @@ function CategoryPage() {
         </div>
       )}
 
-      {/* Active Brand filter indicator */}
-      {brand && (
-        <div className="mt-4 flex items-center gap-2">
-          <span className="text-xs text-slate-500">Filtre actif :</span>
-          <span className="inline-flex items-center gap-1.5 bg-[var(--ed-ink)] text-white px-2.5 py-1 text-xs font-semibold">
-            {brand}
-            <button
-              onClick={() => setBrand(undefined)}
-              className="hover:text-[var(--ed-yellow)] cursor-pointer"
-              title="Supprimer le filtre"
-            >
-              <X size={12} />
-            </button>
-          </span>
+      {/* Active filters indicators */}
+      {(brand || productType) && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500">Filtres actifs :</span>
+          {productType && (
+            <span className="inline-flex items-center gap-1.5 bg-[var(--ed-rust)] text-white px-2.5 py-1 text-xs font-semibold">
+              Type : {productType}
+              <button
+                onClick={() => setProductType(undefined)}
+                className="hover:text-[var(--ed-yellow)] cursor-pointer"
+                title="Supprimer le filtre de type"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          )}
+          {brand && (
+            <span className="inline-flex items-center gap-1.5 bg-[var(--ed-ink)] text-white px-2.5 py-1 text-xs font-semibold">
+              {brand}
+              <button
+                onClick={() => setBrand(undefined)}
+                className="hover:text-[var(--ed-yellow)] cursor-pointer"
+                title="Supprimer le filtre de marque"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          )}
           <button
-            onClick={() => setBrand(undefined)}
+            onClick={() => {
+              setBrand(undefined);
+              setProductType(undefined);
+            }}
             className="text-xs text-[var(--ed-rust)] underline ml-2 font-medium"
           >
             Effacer

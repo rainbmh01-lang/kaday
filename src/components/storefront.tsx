@@ -323,7 +323,27 @@ export function Breadcrumbs({ items }: { items: { label: string; href?: string }
   return <div className="mb-5 flex flex-wrap items-center gap-2 text-xs text-slate-400"><Link href="/" className="hover:text-[var(--ed-rust)]" data-testid="link-breadcrumb-home">Accueil</Link>{items.map((item, index) => <span key={item.label} className="flex items-center gap-2"><ChevronRight size={12} />{item.href ? <Link href={item.href} className="hover:text-[var(--ed-rust)]" data-testid={`link-breadcrumb-${index}`}>{item.label}</Link> : <span className="text-slate-600">{item.label}</span>}</span>)}</div>;
 }
 
-export function FilterRail({ activeCategory, onCategory, activeBrand, onBrand, categoriesList, brandsList }: { activeCategory?: string; onCategory: (value?: string) => void; activeBrand?: string; onBrand: (value?: string) => void; categoriesList?: { slug: string; label: string; count?: string }[]; brandsList?: ({ name: string; slug?: string } | string)[] }) {
+export function FilterRail({
+  activeCategory,
+  onCategory,
+  activeBrand,
+  onBrand,
+  activeType,
+  onType,
+  categoriesList,
+  brandsList,
+  typesList,
+}: {
+  activeCategory?: string;
+  onCategory: (value?: string) => void;
+  activeBrand?: string;
+  onBrand: (value?: string) => void;
+  activeType?: string;
+  onType?: (value?: string) => void;
+  categoriesList?: { slug: string; label: string; count?: string }[];
+  brandsList?: ({ name: string; slug?: string } | string)[];
+  typesList?: string[];
+}) {
   const catItems = categoriesList && categoriesList.length > 0 ? categoriesList : categories;
   const rawBrandItems = brandsList && brandsList.length > 0 ? brandsList : brands;
   const brandNames = rawBrandItems.map((b) => (typeof b === 'string' ? b : b.name));
@@ -347,6 +367,26 @@ export function FilterRail({ activeCategory, onCategory, activeBrand, onBrand, c
             ))}
           </div>
         </div>
+
+        {typesList && typesList.length > 0 && onType && (
+          <div className="border-t border-[var(--ed-line)] pt-6">
+            <p className="ed-mono mb-3 text-[10px] uppercase tracking-[.18em] text-slate-400">Types d’équipements</p>
+            <div className="grid gap-1">
+              {typesList.map((typeName) => (
+                <button
+                  key={typeName}
+                  onClick={() => onType(activeType === typeName ? undefined : typeName)}
+                  className={`flex items-center gap-2 py-2 text-left text-sm ${activeType === typeName ? 'font-bold text-[var(--ed-rust)]' : 'text-slate-600 hover:text-[var(--ed-ink)]'}`}
+                  data-testid={`button-filter-type-${typeName}`}
+                >
+                  <span className={`h-2 w-2 rounded-full ${activeType === typeName ? 'bg-[var(--ed-rust)]' : 'bg-slate-300'}`} />
+                  {typeName}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="border-t border-[var(--ed-line)] pt-6">
           <p className="ed-mono mb-3 text-[10px] uppercase tracking-[.18em] text-slate-400">Marques</p>
           <div className="grid gap-1">

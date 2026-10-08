@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'wouter';
 import {
   Package,
@@ -82,6 +82,7 @@ export default function StoreAdmin() {
   const [productSearch, setProductSearch] = useState('');
   const [selectedCatFilter, setSelectedCatFilter] = useState('');
   const [selectedBrandFilter, setSelectedBrandFilter] = useState('');
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState('');
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Partial<DbProduct> | null>(null);
   const [productImages, setProductImages] = useState<string[]>([]);
@@ -90,6 +91,11 @@ export default function StoreAdmin() {
   const [productSaving, setProductSaving] = useState(false);
   const [productError, setProductError] = useState('');
   const [seeding, setSeeding] = useState(false);
+
+  const adminAvailableTypes = useMemo(() => {
+    const distinct = Array.from(new Set(products.map((p) => p.product_type).filter(Boolean))) as string[];
+    return distinct.sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [products]);
 
   const [successToast, setSuccessToast] = useState('');
 
@@ -341,6 +347,7 @@ export default function StoreAdmin() {
       name: '',
       slug: '',
       summary: '',
+      product_type: '',
       brand_name: brands[0]?.name || '',
       category_slug: categories[0]?.slug || '',
       price: 0,
@@ -357,7 +364,7 @@ export default function StoreAdmin() {
   };
 
   const handleOpenEditProduct = (p: DbProduct) => {
-    setEditingProduct({ ...p });
+    setEditingProduct({ ...p, product_type: p.product_type || '' });
     setProductImages(p.images ? [...p.images] : []);
     setProductImageFiles([null, null, null, null, null]);
     setProductSpecs(p.specs && p.specs.length > 0 ? [...p.specs] : ['']);
@@ -1028,6 +1035,22 @@ export default function StoreAdmin() {
                     </option>
                   ))}
                 </select>
+
+                {/* Type filter */}
+                {adminAvailableTypes.length > 0 && (
+                  <select
+                    value={selectedTypeFilter}
+                    onChange={(e) => setSelectedTypeFilter(e.target.value)}
+                    className="px-3 py-2 border border-slate-200 text-xs bg-white text-slate-700 outline-none"
+                  >
+                    <option value="">Tous les types d'équipements</option>
+                    {adminAvailableTypes.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
 
@@ -1043,14 +1066,18 @@ export default function StoreAdmin() {
                   !productSearch.trim() ||
                   p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
                   p.slug.toLowerCase().includes(productSearch.toLowerCase()) ||
-                  (p.brand_name && p.brand_name.toLowerCase().includes(productSearch.toLowerCase()));
+                  (p.brand_name && p.brand_name.toLowerCase().includes(productSearch.toLowerCase())) ||
+                  (p.product_type && p.product_type.toLowerCase().includes(productSearch.toLowerCase()));
                 const matchCat =
                   !selectedCatFilter ||
                   (p.category_slug && p.category_slug.toLowerCase() === selectedCatFilter.toLowerCase());
                 const matchBrand =
                   !selectedBrandFilter ||
                   (p.brand_name && p.brand_name.toLowerCase() === selectedBrandFilter.toLowerCase());
-                return matchQuery && matchCat && matchBrand;
+                const matchType =
+                  !selectedTypeFilter ||
+                  (p.product_type && p.product_type.toLowerCase() === selectedTypeFilter.toLowerCase());
+                return matchQuery && matchCat && matchBrand && matchType;
               });
 
               if (filteredList.length === 0) {
@@ -1153,10 +1180,15 @@ export default function StoreAdmin() {
                         {/* Product Info */}
                         <div className="p-4 flex-1 flex flex-col justify-between">
                           <div>
-                            <div className="flex items-center gap-2 mb-1.5">
+                            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                               {product.brand_name && (
                                 <span className="ed-mono text-[10px] font-bold uppercase tracking-wider text-[var(--ed-rust)] bg-amber-50 px-1.5 py-0.5 border border-amber-200">
                                   {product.brand_name}
+                                </span>
+                              )}
+                              {product.product_type && (
+                                <span className="ed-mono text-[10px] font-bold uppercase tracking-wider text-sky-800 bg-sky-50 px-1.5 py-0.5 border border-sky-200">
+                                  {product.product_type}
                                 </span>
                               )}
                               {product.category_slug && (
@@ -1701,6 +1733,63 @@ export default function StoreAdmin() {
                         </option>
                       ))}
                     </select>
+                  </div>
+                </div>
+
+                {/* Type d'équipement / نوع المنتج */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Type d'équipement / نوع المنتج
+                    </label>
+                    <span className="text-[11px] text-slate-400">Pour le filtre par type (مثقاب، أحذية، مضخة...)</span>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Ex: Perceuse, Visseuse, Chaussures de sécurité, Pompe à eau..."
+                    value={editingProduct?.product_type || ''}
+                    onChange={(e) =>
+                      setEditingProduct((prev) => ({
+                        ...prev,
+                        product_type: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3.5 py-2.5 border border-slate-300 text-sm focus:border-[var(--ed-ink)] focus:outline-none bg-white"
+                  />
+                  {/* Quick selection chips */}
+                  <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+                    <span className="text-[10px] text-slate-400 mr-1">Suggestions rapides :</span>
+                    {[
+                      { label: 'Perceuse (مثقاب)', val: 'Perceuse' },
+                      { label: 'Visseuse (مفك)', val: 'Visseuse' },
+                      { label: 'Meuleuse (صاروخ)', val: 'Meuleuse' },
+                      { label: 'Niveau laser (ليزر)', val: 'Niveau laser' },
+                      { label: 'Pompe à eau (مضخة)', val: 'Pompe à eau' },
+                      { label: 'Chaussures (أحذية)', val: 'Chaussures de sécurité' },
+                      { label: 'Poste à souder (لحام)', val: 'Poste à souder' },
+                      { label: 'Compresseur (ضاغط)', val: 'Compresseur' },
+                      { label: 'Palan & levage (رافعة)', val: 'Palan & levage' },
+                      { label: 'Multimètre (قياس)', val: 'Multimètre & mesure' },
+                      { label: 'Plomberie (سباكة)', val: 'Plomberie & tuyauterie' },
+                    ].map((chip) => (
+                      <button
+                        key={chip.val}
+                        type="button"
+                        onClick={() =>
+                          setEditingProduct((prev) => ({
+                            ...prev,
+                            product_type: chip.val,
+                          }))
+                        }
+                        className={`text-[11px] px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                          editingProduct?.product_type === chip.val
+                            ? 'bg-[var(--ed-ink)] text-white border-[var(--ed-ink)]'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 

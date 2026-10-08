@@ -311,6 +311,7 @@ export interface DbProduct {
   brand?: string;
   brand_name?: string;
   category_slug?: string;
+  product_type?: string;
   price: number;
   old_price?: number;
   tech_summary?: string;
@@ -320,6 +321,25 @@ export interface DbProduct {
   in_stock: boolean;
   sort_order?: number;
   created_at?: string;
+}
+
+export function inferProductType(name?: string, categorySlug?: string): string {
+  if (!name) return '';
+  const n = name.toLowerCase();
+  if (n.includes('perceuse') || n.includes('مثقاب') || n.includes('perforateur')) return 'Perceuse';
+  if (n.includes('visseuse') || n.includes('مفك')) return 'Visseuse';
+  if (n.includes('meuleuse') || n.includes('صاروخ') || n.includes('جلاخة')) return 'Meuleuse';
+  if (n.includes('laser') || n.includes('ليزر')) return 'Niveau laser';
+  if (n.includes('palan') || n.includes('رافعة') || n.includes('treuil')) return 'Palan & levage';
+  if (n.includes('multimètre') || n.includes('متعدد') || n.includes('testeur')) return 'Multimètre & mesure';
+  if (n.includes('souder') || n.includes('لحام') || n.includes('inverter')) return 'Poste à souder';
+  if (n.includes('compresseur') || n.includes('ضاغط')) return 'Compresseur';
+  if (n.includes('pompe') || n.includes('مضخة')) return 'Pompe à eau';
+  if (n.includes('projecteur') || n.includes('كشاف') || n.includes('led')) return 'Éclairage';
+  if (n.includes('chaussure') || n.includes('حذاء') || n.includes('أحذية') || n.includes('bottes')) return 'Chaussures de sécurité';
+  if (n.includes('diagnostic') || n.includes('obd') || n.includes('فحص')) return 'Diagnostic auto';
+  if (categorySlug === 'plombier' || n.includes('plombier') || n.includes('سباكة')) return 'Plomberie & tuyauterie';
+  return '';
 }
 
 // Fetch products from Supabase with fallback to default store products
@@ -347,6 +367,7 @@ export async function getDbProducts(includeInactive = false): Promise<DbProduct[
         brand: p.brand || '',
         brand_name: p.brand || '',
         category_slug: p.category_slug || '',
+        product_type: p.product_type || inferProductType(p.name, p.category_slug),
         specs: Array.isArray(p.specs) ? p.specs : [],
         images: Array.isArray(p.images) ? p.images : [],
         price: Number(p.price) || 0,
@@ -457,61 +478,73 @@ export async function saveDbProduct(product: Partial<DbProduct>): Promise<DbProd
     sort_order: product.sort_order ?? 0,
   };
 
-  const isUuid = isValidUuid(product.id);
+  if (product.product_type !== undefined) {
+    payload.product_type = product.product_type || null;
+  }
 
-  if (isUuid) {
-    const { data, error } = await supabase
-      .from('products')
-      .update(payload)
-      .eq('id', product.id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return {
-      ...data,
-      brand_name: data.brand,
-      specs: Array.isArray(data.specs) ? data.specs : [],
-      images: Array.isArray(data.images) ? data.images : [],
-    };
-  } else {
-    // Check if exists by slug
-    const { data: existing } = await supabase
-      .from('products')
-      .select('id')
-      .eq('slug', product.slug)
-      .maybeSingle();
-
-    if (existing?.id) {
+  const executeSave = async (dataPayload: any) => {
+    const isUuid = isValidUuid(product.id);
+    if (isUuid) {
       const { data, error } = await supabase
         .from('products')
-        .update(payload)
-        .eq('id', existing.id)
+        .update(dataPayload)
+        .eq('id', product.id)
         .select()
         .single();
       if (error) throw error;
+      return data;
+    } else {
+      const { data: existing } = await supabase
+        .from('products')
+        .select('id')
+        .eq('slug', product.slug)
+        .maybeSingle();
+
+      if (existing?.id) {
+        const { data, error } = await supabase
+          .from('products')
+          .update(dataPayload)
+          .eq('id', existing.id)
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      }
+
+      const { data, error } = await supabase
+        .from('products')
+        .insert([dataPayload])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
+  };
+
+  try {
+    const saved = await executeSave(payload);
+    return {
+      ...saved,
+      brand_name: saved.brand,
+      product_type: saved.product_type || product.product_type || inferProductType(saved.name, saved.category_slug),
+      specs: Array.isArray(saved.specs) ? saved.specs : [],
+      images: Array.isArray(saved.images) ? saved.images : [],
+    };
+  } catch (err: any) {
+    // If column product_type does not exist yet in Supabase, retry without it
+    if (err?.message?.includes('product_type') && payload.product_type !== undefined) {
+      console.warn('Column product_type does not exist in Supabase yet. Saving without it.');
+      delete payload.product_type;
+      const saved = await executeSave(payload);
       return {
-        ...data,
-        brand_name: data.brand,
-        specs: Array.isArray(data.specs) ? data.specs : [],
-        images: Array.isArray(data.images) ? data.images : [],
+        ...saved,
+        brand_name: saved.brand,
+        product_type: product.product_type || inferProductType(saved.name, saved.category_slug),
+        specs: Array.isArray(saved.specs) ? saved.specs : [],
+        images: Array.isArray(saved.images) ? saved.images : [],
       };
     }
-
-    // Insert new
-    const { data, error } = await supabase
-      .from('products')
-      .insert([payload])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return {
-      ...data,
-      brand_name: data.brand,
-      specs: Array.isArray(data.specs) ? data.specs : [],
-      images: Array.isArray(data.images) ? data.images : [],
-    };
+    throw err;
   }
 }
 

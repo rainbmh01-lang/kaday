@@ -19,6 +19,7 @@ export type Product = {
   imageUrl?: string;
   images?: string[];
   techSummary?: string;
+  productType?: string;
 };
 
 export type CatalogLink = {
@@ -72,6 +73,7 @@ export const products: Product[] = [
     color: '#f1be44',
     icon: 'drill',
     imageUrl: '/images/prod-12.webp',
+    productType: 'Perceuse',
   },
   {
     id: 'beetro-hoist-2t',
@@ -91,6 +93,7 @@ export const products: Product[] = [
     color: '#6c879d',
     icon: 'anchor',
     imageUrl: '/images/prod-1.webp',
+    productType: 'Palan & levage',
   },
   {
     id: 'ingco-cidli20601',
@@ -111,6 +114,7 @@ export const products: Product[] = [
     color: '#e6a83d',
     icon: 'settings',
     imageUrl: '/images/prod-2.webp',
+    productType: 'Visseuse',
   },
   {
     id: 'honestpro-laser-4d',
@@ -131,6 +135,7 @@ export const products: Product[] = [
     color: '#7ca27d',
     icon: 'scan-line',
     imageUrl: '/images/prod-3.webp',
+    productType: 'Niveau laser',
   },
   {
     id: 'powerblu-led-100',
@@ -151,6 +156,7 @@ export const products: Product[] = [
     color: '#e4ae3d',
     icon: 'lamp',
     imageUrl: '/images/prod-4.webp',
+    productType: 'Éclairage',
   },
   {
     id: 'fixtop-welder-250',
@@ -170,6 +176,7 @@ export const products: Product[] = [
     color: '#d65a41',
     icon: 'flame',
     imageUrl: '/images/prod-5.webp',
+    productType: 'Poste à souder',
   },
   {
     id: 'dingqi-multimeter',
@@ -188,6 +195,7 @@ export const products: Product[] = [
     color: '#71869c',
     icon: 'activity',
     imageUrl: '/images/prod-6.webp',
+    productType: 'Multimètre & mesure',
   },
   {
     id: 'modepro-compressor',
@@ -208,6 +216,7 @@ export const products: Product[] = [
     color: '#7a8f9d',
     icon: 'gauge',
     imageUrl: '/images/prod-7.webp',
+    productType: 'Compresseur',
   },
   {
     id: 'ingco-grinder',
@@ -228,6 +237,7 @@ export const products: Product[] = [
     color: '#d9993b',
     icon: 'circle-dot',
     imageUrl: '/images/prod-8.webp',
+    productType: 'Meuleuse',
   },
   {
     id: 'honestpro-scanner',
@@ -246,6 +256,7 @@ export const products: Product[] = [
     color: '#4d7893',
     icon: 'scan',
     imageUrl: '/images/prod-9.webp',
+    productType: 'Diagnostic auto',
   },
   {
     id: 'powerblu-pump',
@@ -264,6 +275,7 @@ export const products: Product[] = [
     color: '#719b78',
     icon: 'droplets',
     imageUrl: '/images/prod-10.webp',
+    productType: 'Pompe à eau',
   },
 ];
 
