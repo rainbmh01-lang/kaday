@@ -369,13 +369,16 @@ export async function uploadProductImage(file: File, slug: string, index: number
 }
 
 // Save or update product
+const isValidUuid = (val?: string | null): boolean =>
+  Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
 export async function saveDbProduct(product: Partial<DbProduct>): Promise<DbProduct> {
   const payload: any = {
     name: product.name,
     slug: product.slug,
     summary: product.summary || '',
-    brand_id: product.brand_id || null,
-    category_id: product.category_id || null,
+    brand_id: isValidUuid(product.brand_id) ? product.brand_id : null,
+    category_id: isValidUuid(product.category_id) ? product.category_id : null,
     brand_name: product.brand_name || null,
     category_slug: product.category_slug || null,
     price: Number(product.price) || 0,
@@ -388,7 +391,7 @@ export async function saveDbProduct(product: Partial<DbProduct>): Promise<DbProd
     updated_at: new Date().toISOString(),
   };
 
-  const isUuid = product.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product.id);
+  const isUuid = isValidUuid(product.id);
 
   if (isUuid) {
     const { data, error } = await supabase
