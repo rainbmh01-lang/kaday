@@ -433,15 +433,37 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
 
 function CategoryPage() {
   const { category: slug } = useParams<{ category: string }>();
-  const { favorites, addToCart, toggleFavorite, allProducts, liveCategories } = useStore();
+  const { favorites, addToCart, toggleFavorite, allProducts, liveCategories, liveBrands } = useStore();
   const category = liveCategories.find((c) => c.slug.toLowerCase() === slug?.toLowerCase()) || findCategory(slug);
 
+  const [brand, setBrand] = useState<string>();
+  const [sort, setSort] = useState('featured');
+  const [mobileFilters, setMobileFilters] = useState(false);
+  const [mobileBrandsOpen, setMobileBrandsOpen] = useState(false);
+
+  const currentBrandList = useMemo(() => {
+    if (liveBrands.length > 0) {
+      return liveBrands.map((b) => b.name);
+    }
+    const distinct = Array.from(new Set(allProducts.map((p) => p.brand).filter(Boolean)));
+    return distinct.length > 0 ? distinct : brands;
+  }, [liveBrands, allProducts]);
+
   const items = useMemo(() => {
-    return allProducts.filter((product) =>
-      product.category.toLowerCase() === slug?.toLowerCase() ||
-      (product.categoryLabel && product.categoryLabel.toLowerCase() === slug?.toLowerCase())
-    );
-  }, [allProducts, slug]);
+    const list = allProducts.filter((product) => {
+      const matchCat =
+        product.category.toLowerCase() === slug?.toLowerCase() ||
+        (product.categoryLabel && product.categoryLabel.toLowerCase() === slug?.toLowerCase());
+      const matchBrand = !brand || product.brand.toLowerCase() === brand.toLowerCase();
+      return matchCat && matchBrand;
+    });
+
+    return [...list].sort((a, b) => {
+      if (sort === 'price-low') return a.price - b.price;
+      if (sort === 'price-high') return b.price - a.price;
+      return b.rating - a.rating;
+    });
+  }, [allProducts, slug, brand, sort]);
 
   if (!category) return <NotFound />;
   return (
@@ -451,10 +473,140 @@ function CategoryPage() {
           <h1 className="ed-display text-5xl md:text-6xl font-bold leading-none text-[var(--ed-ink)]">{category.label}</h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{category.sub ? `${category.sub}. ` : ''}Des solutions choisies pour les exigences du chantier, de l’atelier et de la maintenance.</p>
         </div>
-        <Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)]" data-testid="link-category-all">
-          Voir tout le catalogue <ArrowRight size={16} />
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => {
+              setMobileFilters(!mobileFilters);
+              setMobileBrandsOpen(false);
+            }}
+            className={`flex items-center gap-2 border border-[var(--ed-line)] px-3 py-2 text-xs sm:text-sm font-semibold transition-all shadow-xs ${
+              mobileFilters ? 'bg-[var(--ed-rust)] text-white' : 'bg-white hover:bg-slate-50 text-[var(--ed-ink)]'
+            }`}
+            data-testid="button-category-filters"
+          >
+            <SlidersHorizontal size={15} /> Filtres
+          </button>
+          <button
+            onClick={() => {
+              setMobileBrandsOpen(!mobileBrandsOpen);
+              setMobileFilters(false);
+            }}
+            className={`flex items-center gap-2 border border-[var(--ed-line)] px-3 py-2 text-xs sm:text-sm font-semibold transition-all shadow-xs ${
+              mobileBrandsOpen || brand ? 'bg-[var(--ed-ink)] text-white' : 'bg-white hover:bg-slate-50 text-[var(--ed-ink)]'
+            }`}
+            data-testid="button-category-brands"
+          >
+            <Tag size={15} /> {brand ? brand : 'Marques'}
+          </button>
+          <label className="flex items-center gap-2 border border-[var(--ed-line)] bg-white px-3 py-2 text-xs sm:text-sm font-semibold text-[var(--ed-ink)] shadow-xs cursor-pointer hover:bg-slate-50">
+            <ArrowDownUp size={14} className="text-slate-400 shrink-0" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="bg-transparent outline-none cursor-pointer text-xs sm:text-sm font-semibold text-[var(--ed-ink)]"
+              data-testid="select-sort-category"
+            >
+              <option value="featured">Pertinence</option>
+              <option value="price-low">Prix croissant</option>
+              <option value="price-high">Prix décroissant</option>
+            </select>
+          </label>
+        </div>
       </div>
+
+      {/* Brands Drawer */}
+      {mobileBrandsOpen && (
+        <div className="mt-6 border border-[var(--ed-line)] bg-white p-4 shadow-sm animate-in fade-in">
+          <div className="flex items-center justify-between border-b border-[var(--ed-line)] pb-3">
+            <p className="ed-mono text-[10px] uppercase tracking-[.18em] font-bold text-slate-600">Sélectionner une marque</p>
+            {brand && (
+              <button
+                onClick={() => setBrand(undefined)}
+                className="text-xs font-semibold text-[var(--ed-rust)] underline"
+              >
+                Toutes les marques
+              </button>
+            )}
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+            {currentBrandList.map((brandName) => {
+              const isSelected = brand?.toLowerCase() === brandName.toLowerCase();
+              return (
+                <button
+                  key={brandName}
+                  onClick={() => {
+                    setBrand(isSelected ? undefined : brandName);
+                    setMobileBrandsOpen(false);
+                  }}
+                  className={`flex items-center justify-between border p-2.5 text-xs font-semibold transition-all ${
+                    isSelected
+                      ? 'border-[var(--ed-ink)] bg-[var(--ed-ink)] text-white shadow-xs'
+                      : 'border-[var(--ed-line)] bg-slate-50 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="truncate">{brandName}</span>
+                  {isSelected && <Check size={12} className="shrink-0 text-[var(--ed-yellow)]" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Categories / Filters Drawer */}
+      {mobileFilters && (
+        <div className="mt-6 border border-[var(--ed-line)] bg-white p-4 shadow-sm animate-in fade-in">
+          <div className="flex items-center justify-between border-b border-[var(--ed-line)] pb-3">
+            <p className="ed-mono text-[10px] uppercase tracking-[.18em] font-bold text-slate-600">Naviguer par catégorie</p>
+            <button
+              onClick={() => setMobileFilters(false)}
+              className="text-xs text-slate-400 hover:text-slate-600"
+            >
+              Fermer
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {liveCategories.map((cat) => (
+              <Link
+                key={cat.slug}
+                href={`/category/${cat.slug}`}
+                onClick={() => setMobileFilters(false)}
+                className={`px-3 py-2 text-xs font-semibold ${
+                  cat.slug.toLowerCase() === slug?.toLowerCase()
+                    ? 'bg-[var(--ed-rust)] text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {cat.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Active Brand filter indicator */}
+      {brand && (
+        <div className="mt-4 flex items-center gap-2">
+          <span className="text-xs text-slate-500">Filtre actif :</span>
+          <span className="inline-flex items-center gap-1.5 bg-[var(--ed-ink)] text-white px-2.5 py-1 text-xs font-semibold">
+            {brand}
+            <button
+              onClick={() => setBrand(undefined)}
+              className="hover:text-[var(--ed-yellow)] cursor-pointer"
+              title="Supprimer le filtre"
+            >
+              <X size={12} />
+            </button>
+          </span>
+          <button
+            onClick={() => setBrand(undefined)}
+            className="text-xs text-[var(--ed-rust)] underline ml-2 font-medium"
+          >
+            Effacer
+          </button>
+        </div>
+      )}
+
       <div className="mt-8">
         <ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} emptyLabel="Aucun produit dans cette catégorie pour le moment." />
       </div>
