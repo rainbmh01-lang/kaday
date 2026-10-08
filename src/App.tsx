@@ -321,10 +321,8 @@ function Home() {
     <section className="bg-[#eae7df]">
       <div className="mx-auto max-w-[1440px] px-5 py-16 md:py-20">
         <SectionHeading
-          eyebrow="Les essentiels du moment"
-          title="Ce qui part en atelier."
+          title="Tous les produits"
           sub="Une sélection courte, utile, disponible maintenant — avec des prix affichés en dinars, sans détour."
-          action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)]" data-testid="link-featured-all">Voir toute la boutique <ArrowRight size={16} /></Link>}
         />
         <div className="relative">
           <div className="overflow-hidden max-h-[880px] md:max-h-[530px]">
