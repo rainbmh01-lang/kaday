@@ -21,6 +21,7 @@ import {
   UploadCloud,
   X,
   Check,
+  Wrench,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import {
@@ -41,7 +42,7 @@ import {
 } from '@/lib/store-data';
 import { formatDzd } from '@/data/store';
 
-type Tab = 'products' | 'categories' | 'brands';
+type Tab = 'products' | 'categories' | 'brands' | 'types';
 
 export default function StoreAdmin() {
   const [session, setSession] = useState<any>(null);
@@ -92,9 +93,29 @@ export default function StoreAdmin() {
   const [productError, setProductError] = useState('');
   const [seeding, setSeeding] = useState(false);
 
+  const [typeSearch, setTypeSearch] = useState('');
+
   const adminAvailableTypes = useMemo(() => {
     const distinct = Array.from(new Set(products.map((p) => p.product_type).filter(Boolean))) as string[];
     return distinct.sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [products]);
+
+  const typesStats = useMemo(() => {
+    const map = new Map<string, { count: number; products: DbProduct[] }>();
+    products.forEach((p) => {
+      const t = p.product_type?.trim();
+      if (t) {
+        if (!map.has(t)) {
+          map.set(t, { count: 0, products: [] });
+        }
+        const item = map.get(t)!;
+        item.count += 1;
+        item.products.push(p);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([name, data]) => ({ name, count: data.count, products: data.products }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'fr'));
   }, [products]);
 
   const [successToast, setSuccessToast] = useState('');
@@ -703,6 +724,18 @@ export default function StoreAdmin() {
           </button>
 
           <button
+            onClick={() => setActiveTab('types')}
+            className={`flex items-center gap-2.5 pb-3.5 px-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'types'
+                ? 'border-[var(--ed-rust)] text-[var(--ed-rust)]'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Wrench size={17} />
+            <span>Types d’équipements ({typesStats.length})</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('products')}
             className={`flex items-center gap-2.5 pb-3.5 px-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'products'
@@ -950,6 +983,229 @@ export default function StoreAdmin() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Tab: Types d'équipements */}
+        {activeTab === 'types' && (
+          <div className="space-y-6">
+            {/* Top Toolbar */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white border border-[var(--ed-line)] p-5">
+              <div>
+                <h2 className="ed-display text-2xl font-bold">Types d’équipements & Matériel</h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Gestion des types d'équipements (مثقاب، أحذية، مضخة، ميزان...) pour alimenter les filtres de la boutique et faciliter la recherche des artisans.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
+                <button
+                  onClick={loadProducts}
+                  className="p-2 border border-slate-200 text-slate-500 hover:text-[var(--ed-ink)] hover:bg-slate-50 transition-colors"
+                  title="Rafraîchir"
+                >
+                  <RefreshCw size={15} className={productsLoading ? 'animate-spin' : ''} />
+                </button>
+
+                <button
+                  onClick={handleOpenAddProduct}
+                  className="bg-[var(--ed-yellow)] hover:bg-[var(--ed-ink)] hover:text-white text-[var(--ed-ink)] text-xs font-bold px-4 py-2.5 flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Plus size={15} />
+                  <span>Nouveau Produit avec Type</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick KPI stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white border border-[var(--ed-line)] p-4 flex items-center gap-3">
+                <div className="h-10 w-10 bg-amber-50 border border-amber-200 flex items-center justify-center text-[var(--ed-rust)] font-bold">
+                  <Wrench size={18} />
+                </div>
+                <div>
+                  <div className="text-xl font-black text-[var(--ed-ink)]">{typesStats.length}</div>
+                  <div className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Types répertoriés</div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-[var(--ed-line)] p-4 flex items-center gap-3">
+                <div className="h-10 w-10 bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 font-bold">
+                  <Package size={18} />
+                </div>
+                <div>
+                  <div className="text-xl font-black text-[var(--ed-ink)]">{products.filter((p) => p.product_type).length}</div>
+                  <div className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Produits typés</div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-[var(--ed-line)] p-4 flex items-center gap-3">
+                <div className="h-10 w-10 bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-bold">
+                  <Layers size={18} />
+                </div>
+                <div>
+                  <div className="text-xl font-black text-[var(--ed-ink)]">
+                    {products.filter((p) => !p.product_type).length}
+                  </div>
+                  <div className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Sans type explicite</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Search & Suggested Types Bar */}
+            <div className="bg-white border border-[var(--ed-line)] p-4 space-y-3">
+              <div className="relative">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher un type d'équipement (ex: perceuse, pompe, chaussures...)"
+                  value={typeSearch}
+                  onChange={(e) => setTypeSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 border border-slate-200 text-xs focus:border-[var(--ed-ink)] focus:outline-none"
+                />
+              </div>
+
+              {/* Suggestions chips */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[11px] text-slate-500 font-semibold mr-1">Types standards :</span>
+                {[
+                  { label: 'Perceuse (مثقاب)', val: 'Perceuse' },
+                  { label: 'Visseuse (مفك)', val: 'Visseuse' },
+                  { label: 'Meuleuse (صاروخ)', val: 'Meuleuse' },
+                  { label: 'Niveau laser (ليزر)', val: 'Niveau laser' },
+                  { label: 'Pompe à eau (مضخة)', val: 'Pompe à eau' },
+                  { label: 'Chaussures (أحذية)', val: 'Chaussures de sécurité' },
+                  { label: 'Poste à souder (لحام)', val: 'Poste à souder' },
+                  { label: 'Compresseur (ضاغط)', val: 'Compresseur' },
+                  { label: 'Palan & levage (رافعة)', val: 'Palan & levage' },
+                  { label: 'Multimètre (قياس)', val: 'Multimètre & mesure' },
+                  { label: 'Plomberie (سباكة)', val: 'Plomberie & tuyauterie' },
+                ].map((chip) => {
+                  const existingCount = typesStats.find((t) => t.name.toLowerCase() === chip.val.toLowerCase())?.count || 0;
+                  return (
+                    <button
+                      key={chip.val}
+                      onClick={() => {
+                        if (existingCount > 0) {
+                          setSelectedTypeFilter(chip.val);
+                          setActiveTab('products');
+                        } else {
+                          handleOpenAddProduct();
+                          setEditingProduct((prev) => ({
+                            ...prev,
+                            product_type: chip.val,
+                          }));
+                        }
+                      }}
+                      className={`text-[11px] px-2.5 py-1 rounded border flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        existingCount > 0
+                          ? 'bg-amber-50 border-amber-200 text-[var(--ed-ink)] font-bold hover:bg-amber-100'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                      title={existingCount > 0 ? `${existingCount} produits — Cliquer pour voir` : `0 produit — Cliquer pour créer un produit`}
+                    >
+                      <span>{chip.label}</span>
+                      <span className={`text-[10px] px-1 py-0.2 rounded ${existingCount > 0 ? 'bg-[var(--ed-rust)] text-white' : 'bg-slate-200 text-slate-600'}`}>
+                        {existingCount}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Types Cards Grid */}
+            {typesStats.length === 0 ? (
+              <div className="bg-white border border-[var(--ed-line)] p-12 text-center text-slate-400">
+                <Wrench size={40} className="mx-auto mb-3 opacity-40" />
+                <p className="font-semibold text-slate-700">Aucun type d'équipement enregistré</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                  Attribuez un type à vos produits existants lors de la modification ou créez un nouveau produit avec un type défini.
+                </p>
+              </div>
+            ) : (() => {
+              const filteredTypes = typesStats.filter((t) =>
+                !typeSearch.trim() || t.name.toLowerCase().includes(typeSearch.toLowerCase().trim())
+              );
+
+              if (filteredTypes.length === 0) {
+                return (
+                  <div className="bg-white border border-[var(--ed-line)] p-8 text-center text-slate-400">
+                    <p className="font-semibold text-slate-700">Aucun type ne correspond à la recherche "{typeSearch}"</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredTypes.map((typeItem) => (
+                    <div
+                      key={typeItem.name}
+                      className="bg-white border border-[var(--ed-line)] p-4 flex flex-col justify-between hover:border-[var(--ed-rust)] transition-all shadow-xs"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 bg-sky-50 border border-sky-200 text-sky-700 flex items-center justify-center shrink-0">
+                              <Wrench size={14} />
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-sm text-[var(--ed-ink)] leading-tight">{typeItem.name}</h3>
+                              <span className="text-[10px] text-slate-400 ed-mono">Type d’équipement</span>
+                            </div>
+                          </div>
+                          <span className="bg-[var(--ed-ink)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                            {typeItem.count} {typeItem.count > 1 ? 'produits' : 'produit'}
+                          </span>
+                        </div>
+
+                        {/* List preview of up to 3 products */}
+                        <div className="border-t border-slate-100 pt-2.5 mt-2 space-y-1.5">
+                          <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Références associées :</p>
+                          {typeItem.products.slice(0, 3).map((prod) => (
+                            <div key={prod.id} className="flex items-center justify-between text-xs text-slate-700 gap-2">
+                              <span className="truncate" title={prod.name}>• {prod.name}</span>
+                              <span className="text-[10px] ed-mono text-slate-500 shrink-0">{formatDzd(prod.price)}</span>
+                            </div>
+                          ))}
+                          {typeItem.products.length > 3 && (
+                            <p className="text-[10px] text-slate-400 italic">
+                              + {typeItem.products.length - 3} autre(s) référence(s)...
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="border-t border-slate-100 pt-3 mt-4 flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedTypeFilter(typeItem.name);
+                            setActiveTab('products');
+                          }}
+                          className="flex-1 text-center bg-slate-50 hover:bg-[var(--ed-ink)] hover:text-white text-[var(--ed-ink)] border border-slate-200 text-xs font-semibold py-1.5 transition-colors cursor-pointer"
+                        >
+                          Voir les produits
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleOpenAddProduct();
+                            setEditingProduct((prev) => ({
+                              ...prev,
+                              product_type: typeItem.name,
+                            }));
+                          }}
+                          className="bg-amber-50 hover:bg-amber-100 text-[var(--ed-rust)] border border-amber-200 text-xs font-bold px-2.5 py-1.5 transition-colors cursor-pointer flex items-center gap-1"
+                          title="Ajouter un produit sous ce type"
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
 
