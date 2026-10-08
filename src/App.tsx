@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter, useSearchParams } from 'wouter';
 import {
@@ -513,10 +513,14 @@ function ProductPage() {
   const { allProducts } = useStore();
   const product = allProducts.find((p) => p.slug.toLowerCase() === slug?.toLowerCase() || p.id === slug) || findProduct(slug);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
 
   useEffect(() => {
     if (product) {
       trackViewContent(product);
+      setActiveImageIdx(0);
     }
   }, [product?.id]);
 
@@ -525,29 +529,126 @@ function ProductPage() {
   const displayImages = product.images && product.images.length > 0
     ? product.images
     : (product.imageUrl ? [product.imageUrl] : []);
-  const currentImg = displayImages[activeImageIdx] || displayImages[0];
+
+  useEffect(() => {
+    if (displayImages.length <= 1 || isPaused) return;
+    const timer = setInterval(() => {
+      setActiveImageIdx((prev) => (prev + 1) % displayImages.length);
+    }, 2800);
+    return () => clearInterval(timer);
+  }, [displayImages.length, isPaused]);
+
+  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setIsPaused(true);
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+    touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current !== null && touchEndX.current !== null) {
+      const diff = touchStartX.current - touchEndX.current;
+      if (diff > 40) {
+        setActiveImageIdx((prev) => (prev + 1) % displayImages.length);
+      } else if (diff < -40) {
+        setActiveImageIdx((prev) => (prev - 1 + displayImages.length) % displayImages.length);
+      }
+    }
+    touchStartX.current = null;
+    touchEndX.current = null;
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+    pauseTimeoutRef.current = setTimeout(() => {
+      setIsPaused(false);
+    }, 3500);
+  };
 
   return (
     <div id="product-main" className="mx-auto max-w-[1440px] px-4 py-4 sm:px-5 sm:py-6 md:py-12">
       <div className="grid gap-5 md:grid-cols-[1.05fr_.95fr] md:gap-8">
-        <div className="border border-[var(--ed-line)] bg-white flex flex-col justify-between">
-          <ProductVisual product={product} large activeImageUrl={currentImg} />
-          {displayImages.length > 1 && (
-            <div className="flex gap-2 p-3 border-t border-[var(--ed-line)] overflow-x-auto bg-slate-50">
-              {displayImages.map((img, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setActiveImageIdx(idx)}
-                  className={`h-16 w-16 shrink-0 border-2 bg-white p-1 transition-all rounded ${
-                    activeImageIdx === idx ? 'border-[var(--ed-rust)] ring-2 ring-[var(--ed-rust)]/20' : 'border-slate-200 hover:border-slate-400'
-                  }`}
-                  aria-label={`Photo ${idx + 1}`}
-                >
-                  <img src={img} alt={`Photo ${idx + 1}`} className="h-full w-full object-contain" />
-                </button>
-              ))}
+        <div className="border border-[var(--ed-line)] bg-white relative overflow-hidden group">
+          {displayImages.length > 0 ? (
+            <div
+              className="relative overflow-hidden bg-white select-none touch-pan-y"
+              dir="ltr"
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
+              onPointerDown={() => setIsPaused(true)}
+              onPointerUp={() => setIsPaused(false)}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <div
+                className="flex transition-transform duration-500 ease-out aspect-square w-full max-w-[320px] sm:max-w-[360px] mx-auto md:max-w-none md:min-h-[380px]"
+                style={{ transform: `translateX(-${activeImageIdx * 100}%)` }}
+              >
+                {displayImages.map((img, idx) => (
+                  <div
+                    key={idx}
+                    className="w-full shrink-0 h-full flex items-center justify-center p-3 sm:p-4"
+                  >
+                    <img
+                      src={img}
+                      alt={`${product.name} ${idx + 1}`}
+                      className="h-full w-full object-contain pointer-events-none select-none"
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                      draggable={false}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {displayImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveImageIdx((prev) => (prev - 1 + displayImages.length) % displayImages.length);
+                    }}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-full bg-white/85 text-[var(--ed-ink)] shadow border border-slate-200 backdrop-blur transition hover:bg-white active:scale-95"
+                    aria-label="Photo précédente"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveImageIdx((prev) => (prev + 1) % displayImages.length);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 grid h-8 w-8 sm:h-9 sm:w-9 place-items-center rounded-full bg-white/85 text-[var(--ed-ink)] shadow border border-slate-200 backdrop-blur transition hover:bg-white active:scale-95"
+                    aria-label="Photo suivante"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+
+                  <div className="absolute bottom-3 left-0 right-0 z-10 flex justify-center items-center gap-1.5 pointer-events-auto">
+                    {displayImages.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActiveImageIdx(idx)}
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          activeImageIdx === idx
+                            ? 'w-6 bg-[var(--ed-rust)]'
+                            : 'w-2 bg-slate-300 hover:bg-slate-400'
+                        }`}
+                        aria-label={`Photo ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
+          ) : (
+            <ProductVisual product={product} large />
           )}
         </div>
 
