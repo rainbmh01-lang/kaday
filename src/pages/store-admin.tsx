@@ -33,6 +33,10 @@ import {
   saveDbBrand,
   deleteDbBrand,
   type DbBrand,
+  getDbProductTypes,
+  saveDbProductType,
+  deleteDbProductType,
+  type DbProductType,
   getDbProducts,
   saveDbProduct,
   deleteDbProduct,
@@ -77,6 +81,16 @@ export default function StoreAdmin() {
   const [brandSaving, setBrandSaving] = useState(false);
   const [brandError, setBrandError] = useState('');
 
+  // Product Types state
+  const [dbTypes, setDbTypes] = useState<DbProductType[]>([]);
+  const [typesLoading, setTypesLoading] = useState(false);
+  const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
+  const [editingType, setEditingType] = useState<Partial<DbProductType> | null>(null);
+  const [typeImageFile, setTypeImageFile] = useState<File | null>(null);
+  const [typeImagePreview, setTypeImagePreview] = useState<string>('');
+  const [typeSaving, setTypeSaving] = useState(false);
+  const [typeError, setTypeError] = useState('');
+
   // Products state
   const [products, setProducts] = useState<DbProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
@@ -96,27 +110,59 @@ export default function StoreAdmin() {
   const [typeSearch, setTypeSearch] = useState('');
 
   const adminAvailableTypes = useMemo(() => {
-    const distinct = Array.from(new Set(products.map((p) => p.product_type).filter(Boolean))) as string[];
+    const fromProds = products.map((p) => p.product_type).filter(Boolean) as string[];
+    const fromDb = dbTypes.map((t) => t.name).filter(Boolean);
+    const distinct = Array.from(new Set([...fromProds, ...fromDb]));
     return distinct.sort((a, b) => a.localeCompare(b, 'fr'));
-  }, [products]);
+  }, [products, dbTypes]);
 
   const typesStats = useMemo(() => {
-    const map = new Map<string, { count: number; products: DbProduct[] }>();
+    const map = new Map<string, { typeInfo?: DbProductType; count: number; products: DbProduct[] }>();
+
+    dbTypes.forEach((t) => {
+      map.set(t.name.toLowerCase(), {
+        typeInfo: t,
+        count: 0,
+        products: [],
+      });
+    });
+
     products.forEach((p) => {
       const t = p.product_type?.trim();
       if (t) {
-        if (!map.has(t)) {
-          map.set(t, { count: 0, products: [] });
+        const key = t.toLowerCase();
+        if (!map.has(key)) {
+          map.set(key, {
+            typeInfo: {
+              id: key,
+              name: t,
+              slug: key.replace(/[^a-z0-9]+/g, '-'),
+              image_url: '',
+              sort_order: 99,
+              is_active: true,
+            },
+            count: 0,
+            products: [],
+          });
         }
-        const item = map.get(t)!;
+        const item = map.get(key)!;
         item.count += 1;
         item.products.push(p);
       }
     });
-    return Array.from(map.entries())
-      .map(([name, data]) => ({ name, count: data.count, products: data.products }))
+
+    return Array.from(map.values())
+      .map((item) => ({
+        name: item.typeInfo?.name || '',
+        slug: item.typeInfo?.slug || '',
+        image_url: item.typeInfo?.image_url || '',
+        id: item.typeInfo?.id || '',
+        typeInfo: item.typeInfo,
+        count: item.count,
+        products: item.products,
+      }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'fr'));
-  }, [products]);
+  }, [dbTypes, products]);
 
   const [successToast, setSuccessToast] = useState('');
 
@@ -161,6 +207,19 @@ export default function StoreAdmin() {
     }
   };
 
+  // Load product types
+  const loadProductTypes = async () => {
+    setTypesLoading(true);
+    try {
+      const data = await getDbProductTypes();
+      setDbTypes(data);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setTypesLoading(false);
+    }
+  };
+
   // Load products
   const loadProducts = async () => {
     setProductsLoading(true);
@@ -178,6 +237,7 @@ export default function StoreAdmin() {
     if (session) {
       loadCategories();
       loadBrands();
+      loadProductTypes();
       loadProducts();
     }
   }, [session]);
@@ -357,6 +417,80 @@ export default function StoreAdmin() {
       await saveDbBrand({ ...brand, is_active: !brand.is_active });
       showToast(brand.is_active ? 'Marque masquée' : 'Marque activée');
       await loadBrands();
+    } catch (err: any) {
+      alert(`Erreur: ${err.message}`);
+    }
+  };
+
+  // --- Product Types Handlers ---
+  const handleOpenAddType = () => {
+    setEditingType({
+      name: '',
+      slug: '',
+      image_url: '',
+      sort_order: dbTypes.length + 1,
+      is_active: true,
+    });
+    setTypeImageFile(null);
+    setTypeImagePreview('');
+    setTypeError('');
+    setIsTypeModalOpen(true);
+  };
+
+  const handleOpenEditType = (typeItem: DbProductType | Partial<DbProductType>) => {
+    setEditingType({ ...typeItem });
+    setTypeImageFile(null);
+    setTypeImagePreview(typeItem.image_url || '');
+    setTypeError('');
+    setIsTypeModalOpen(true);
+  };
+
+  const handleTypeImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setTypeImageFile(file);
+      setTypeImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSaveType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingType?.name?.trim()) {
+      setTypeError('Le nom du type d’équipement est obligatoire.');
+      return;
+    }
+    setTypeSaving(true);
+    setTypeError('');
+
+    try {
+      const slug = editingType.slug?.trim()
+        ? editingType.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')
+        : editingType.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+      await saveDbProductType(
+        {
+          ...editingType,
+          slug,
+        },
+        typeImageFile || undefined
+      );
+
+      setIsTypeModalOpen(false);
+      showToast('Type d’équipement enregistré avec succès !');
+      await loadProductTypes();
+    } catch (err: any) {
+      setTypeError(err.message || 'Erreur lors de l’enregistrement.');
+    } finally {
+      setTypeSaving(false);
+    }
+  };
+
+  const handleDeleteType = async (typeItem: { id?: string; slug?: string; name: string }) => {
+    if (!window.confirm(`Supprimer le type "${typeItem.name}" ?`)) return;
+    try {
+      await deleteDbProductType(typeItem.id || typeItem.slug || typeItem.name.toLowerCase());
+      showToast(`Type "${typeItem.name}" supprimé.`);
+      await loadProductTypes();
     } catch (err: any) {
       alert(`Erreur: ${err.message}`);
     }
@@ -994,25 +1128,25 @@ export default function StoreAdmin() {
               <div>
                 <h2 className="ed-display text-2xl font-bold">Types d’équipements & Matériel</h2>
                 <p className="text-xs text-slate-500 mt-1">
-                  Gestion des types d'équipements (مثقاب، أحذية، مضخة، ميزان...) pour alimenter les filtres de la boutique et faciliter la recherche des artisans.
+                  Gestion des types d'équipements avec photos (مثقاب، أحذية، مضخة، ميزان...) pour alimenter les filtres de la boutique et faciliter la recherche des artisans.
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
                 <button
-                  onClick={loadProducts}
+                  onClick={loadProductTypes}
                   className="p-2 border border-slate-200 text-slate-500 hover:text-[var(--ed-ink)] hover:bg-slate-50 transition-colors"
                   title="Rafraîchir"
                 >
-                  <RefreshCw size={15} className={productsLoading ? 'animate-spin' : ''} />
+                  <RefreshCw size={15} className={typesLoading ? 'animate-spin' : ''} />
                 </button>
 
                 <button
-                  onClick={handleOpenAddProduct}
+                  onClick={handleOpenAddType}
                   className="bg-[var(--ed-yellow)] hover:bg-[var(--ed-ink)] hover:text-white text-[var(--ed-ink)] text-xs font-bold px-4 py-2.5 flex items-center gap-2 transition-colors cursor-pointer"
                 >
                   <Plus size={15} />
-                  <span>Nouveau Produit avec Type</span>
+                  <span>Nouveau Type d'équipement</span>
                 </button>
               </div>
             </div>
@@ -1081,19 +1215,20 @@ export default function StoreAdmin() {
                   { label: 'Multimètre (قياس)', val: 'Multimètre & mesure' },
                   { label: 'Plomberie (سباكة)', val: 'Plomberie & tuyauterie' },
                 ].map((chip) => {
-                  const existingCount = typesStats.find((t) => t.name.toLowerCase() === chip.val.toLowerCase())?.count || 0;
+                  const existing = typesStats.find((t) => t.name.toLowerCase() === chip.val.toLowerCase());
+                  const existingCount = existing?.count || 0;
                   return (
                     <button
                       key={chip.val}
                       onClick={() => {
-                        if (existingCount > 0) {
-                          setSelectedTypeFilter(chip.val);
-                          setActiveTab('products');
+                        if (existing) {
+                          handleOpenEditType(existing.typeInfo || { name: chip.val, slug: chip.val.toLowerCase() });
                         } else {
-                          handleOpenAddProduct();
-                          setEditingProduct((prev) => ({
+                          handleOpenAddType();
+                          setEditingType((prev) => ({
                             ...prev,
-                            product_type: chip.val,
+                            name: chip.val,
+                            slug: chip.val.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
                           }));
                         }
                       }}
@@ -1102,7 +1237,7 @@ export default function StoreAdmin() {
                           ? 'bg-amber-50 border-amber-200 text-[var(--ed-ink)] font-bold hover:bg-amber-100'
                           : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                       }`}
-                      title={existingCount > 0 ? `${existingCount} produits — Cliquer pour voir` : `0 produit — Cliquer pour créer un produit`}
+                      title={existingCount > 0 ? `${existingCount} produits — Cliquer pour gérer/modifier photo` : `Cliquer pour ajouter ce type avec photo`}
                     >
                       <span>{chip.label}</span>
                       <span className={`text-[10px] px-1 py-0.2 rounded ${existingCount > 0 ? 'bg-[var(--ed-rust)] text-white' : 'bg-slate-200 text-slate-600'}`}>
@@ -1120,7 +1255,7 @@ export default function StoreAdmin() {
                 <Wrench size={40} className="mx-auto mb-3 opacity-40" />
                 <p className="font-semibold text-slate-700">Aucun type d'équipement enregistré</p>
                 <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                  Attribuez un type à vos produits existants lors de la modification ou créez un nouveau produit avec un type défini.
+                  Cliquez sur "Nouveau Type d'équipement" pour ajouter un type avec sa photo et son nom.
                 </p>
               </div>
             ) : (() => {
@@ -1141,65 +1276,130 @@ export default function StoreAdmin() {
                   {filteredTypes.map((typeItem) => (
                     <div
                       key={typeItem.name}
-                      className="bg-white border border-[var(--ed-line)] p-4 flex flex-col justify-between hover:border-[var(--ed-rust)] transition-all shadow-xs"
+                      className="bg-white border border-[var(--ed-line)] flex flex-col justify-between hover:border-[var(--ed-rust)] transition-all shadow-xs overflow-hidden group"
                     >
-                      <div>
-                        <div className="flex items-start justify-between gap-2 mb-3">
-                          <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 bg-sky-50 border border-sky-200 text-sky-700 flex items-center justify-center shrink-0">
-                              <Wrench size={14} />
-                            </div>
-                            <div>
-                              <h3 className="font-bold text-sm text-[var(--ed-ink)] leading-tight">{typeItem.name}</h3>
-                              <span className="text-[10px] text-slate-400 ed-mono">Type d’équipement</span>
-                            </div>
+                      {/* Photo / Image Area */}
+                      <div className="h-36 bg-slate-50 relative flex items-center justify-center border-b border-slate-100 overflow-hidden">
+                        {typeItem.image_url ? (
+                          <img
+                            src={typeItem.image_url}
+                            alt={typeItem.name}
+                            className="h-full w-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-slate-300">
+                            <ImageIcon size={30} className="mb-1" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                              Sans photo
+                            </span>
                           </div>
-                          <span className="bg-[var(--ed-ink)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
-                            {typeItem.count} {typeItem.count > 1 ? 'produits' : 'produit'}
-                          </span>
+                        )}
+
+                        {/* Top action buttons: Edit photo/name & Delete */}
+                        <div className="absolute top-2 right-2 flex items-center gap-1">
+                          <button
+                            onClick={() =>
+                              handleOpenEditType(
+                                typeItem.typeInfo || {
+                                  id: typeItem.id,
+                                  name: typeItem.name,
+                                  slug: typeItem.slug,
+                                  image_url: typeItem.image_url,
+                                  sort_order: 0,
+                                  is_active: true,
+                                }
+                              )
+                            }
+                            className="bg-white/90 hover:bg-white text-slate-700 p-1.5 shadow-sm rounded-full transition-colors cursor-pointer"
+                            title="Modifier le nom ou la photo"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteType(typeItem)}
+                            className="bg-white/90 hover:bg-rose-50 text-rose-600 p-1.5 shadow-sm rounded-full transition-colors cursor-pointer"
+                            title="Supprimer ce type"
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </div>
 
-                        {/* List preview of up to 3 products */}
-                        <div className="border-t border-slate-100 pt-2.5 mt-2 space-y-1.5">
-                          <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Références associées :</p>
-                          {typeItem.products.slice(0, 3).map((prod) => (
-                            <div key={prod.id} className="flex items-center justify-between text-xs text-slate-700 gap-2">
-                              <span className="truncate" title={prod.name}>• {prod.name}</span>
-                              <span className="text-[10px] ed-mono text-slate-500 shrink-0">{formatDzd(prod.price)}</span>
-                            </div>
-                          ))}
-                          {typeItem.products.length > 3 && (
-                            <p className="text-[10px] text-slate-400 italic">
-                              + {typeItem.products.length - 3} autre(s) référence(s)...
-                            </p>
-                          )}
-                        </div>
+                        {/* Badge for item count */}
+                        <span className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                          {typeItem.count} {typeItem.count > 1 ? 'produits' : 'produit'}
+                        </span>
                       </div>
 
-                      {/* Actions */}
-                      <div className="border-t border-slate-100 pt-3 mt-4 flex items-center justify-between gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedTypeFilter(typeItem.name);
-                            setActiveTab('products');
-                          }}
-                          className="flex-1 text-center bg-slate-50 hover:bg-[var(--ed-ink)] hover:text-white text-[var(--ed-ink)] border border-slate-200 text-xs font-semibold py-1.5 transition-colors cursor-pointer"
-                        >
-                          Voir les produits
-                        </button>
-                        <button
-                          onClick={() => {
-                            handleOpenAddProduct();
-                            setEditingProduct((prev) => ({
-                              ...prev,
-                              product_type: typeItem.name,
-                            }));
-                          }}
-                          className="bg-amber-50 hover:bg-amber-100 text-[var(--ed-rust)] border border-amber-200 text-xs font-bold px-2.5 py-1.5 transition-colors cursor-pointer flex items-center gap-1"
-                          title="Ajouter un produit sous ce type"
-                        >
-                          <Plus size={12} />
-                        </button>
+                      {/* Content details */}
+                      <div className="p-4 flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <h3 className="font-bold text-sm text-[var(--ed-ink)] leading-tight">{typeItem.name}</h3>
+                            <button
+                              onClick={() =>
+                                handleOpenEditType(
+                                  typeItem.typeInfo || {
+                                    id: typeItem.id,
+                                    name: typeItem.name,
+                                    slug: typeItem.slug,
+                                    image_url: typeItem.image_url,
+                                    sort_order: 0,
+                                    is_active: true,
+                                  }
+                                )
+                              }
+                              className="text-[11px] text-[var(--ed-rust)] font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
+                            >
+                              <Edit2 size={10} /> Photo
+                            </button>
+                          </div>
+
+                          {/* List preview of up to 3 products */}
+                          <div className="border-t border-slate-100 pt-2 mt-2 space-y-1">
+                            <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Références associées :</p>
+                            {typeItem.products.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic">Aucun produit pour le moment</p>
+                            ) : (
+                              typeItem.products.slice(0, 3).map((prod) => (
+                                <div key={prod.id} className="flex items-center justify-between text-xs text-slate-700 gap-2">
+                                  <span className="truncate" title={prod.name}>• {prod.name}</span>
+                                  <span className="text-[10px] ed-mono text-slate-500 shrink-0">{formatDzd(prod.price)}</span>
+                                </div>
+                              ))
+                            )}
+                            {typeItem.products.length > 3 && (
+                              <p className="text-[10px] text-slate-400 italic">
+                                + {typeItem.products.length - 3} autre(s) référence(s)...
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions footer */}
+                        <div className="border-t border-slate-100 pt-3 mt-4 flex items-center justify-between gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedTypeFilter(typeItem.name);
+                              setActiveTab('products');
+                            }}
+                            className="flex-1 text-center bg-slate-50 hover:bg-[var(--ed-ink)] hover:text-white text-[var(--ed-ink)] border border-slate-200 text-xs font-semibold py-1.5 transition-colors cursor-pointer"
+                          >
+                            Voir les produits
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleOpenAddProduct();
+                              setEditingProduct((prev) => ({
+                                ...prev,
+                                product_type: typeItem.name,
+                              }));
+                            }}
+                            className="bg-amber-50 hover:bg-amber-100 text-[var(--ed-rust)] border border-amber-200 text-xs font-bold px-2.5 py-1.5 transition-colors cursor-pointer flex items-center gap-1"
+                            title="Ajouter un produit sous ce type"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1873,6 +2073,133 @@ export default function StoreAdmin() {
                   ) : (
                     <span>Enregistrer la marque</span>
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Add / Edit Product Type */}
+      {isTypeModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg border border-[var(--ed-line)] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-[#f8f7f3]">
+              <h3 className="font-bold text-base text-[var(--ed-ink)]">
+                {editingType?.id && dbTypes.some((t) => t.id === editingType.id)
+                  ? "Modifier le type d'équipement"
+                  : "Nouveau type d'équipement"}
+              </h3>
+              <button
+                onClick={() => setIsTypeModalOpen(false)}
+                className="p-1 hover:bg-slate-200 text-slate-500 cursor-pointer rounded"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveType} className="p-6 space-y-4">
+              {typeError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2 rounded">
+                  <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                  <span>{typeError}</span>
+                </div>
+              )}
+
+              {/* Photo Upload Area */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Photo illustrative du type (Optionnelle)
+                </label>
+                <div className="flex items-center gap-4">
+                  <div className="h-24 w-28 shrink-0 bg-slate-50 border-2 border-dashed border-slate-300 rounded flex items-center justify-center overflow-hidden p-1">
+                    {typeImagePreview ? (
+                      <img
+                        src={typeImagePreview}
+                        alt="Aperçu"
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <Wrench size={24} className="text-slate-300" />
+                    )}
+                  </div>
+
+                  <div className="flex-1">
+                    <label className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors">
+                      <UploadCloud size={15} />
+                      <span>{typeImagePreview ? 'Changer la photo' : 'Téléverser une photo'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleTypeImageChange}
+                        className="hidden"
+                      />
+                    </label>
+                    <p className="text-[11px] text-slate-400 mt-1.5">
+                      Photo représentative (ex: مثقاب، أحذية سلامة، مضخة...).
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Nom du type d'équipement *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingType?.name || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const slugVal = val
+                      .toLowerCase()
+                      .normalize('NFD')
+                      .replace(/[\u0300-\u036f]/g, '')
+                      .replace(/[^a-z0-9]+/g, '-')
+                      .replace(/(^-|-$)+/g, '');
+                    setEditingType((prev) => ({
+                      ...prev,
+                      name: val,
+                      slug: prev?.id ? prev.slug : slugVal,
+                    }));
+                  }}
+                  placeholder="Ex: Perceuse, Chaussures de sécurité, Pompe à eau..."
+                  className="w-full px-3.5 py-2 border border-slate-300 text-sm focus:border-[var(--ed-ink)] focus:outline-none font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Identifiant / Slug *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingType?.slug || ''}
+                  onChange={(e) =>
+                    setEditingType((prev) => ({ ...prev, slug: e.target.value }))
+                  }
+                  placeholder="perceuse"
+                  className="w-full px-3.5 py-2 border border-slate-300 text-xs ed-mono focus:border-[var(--ed-ink)] focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsTypeModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={typeSaving}
+                  className="bg-[var(--ed-ink)] hover:bg-[var(--ed-rust)] text-white text-xs font-bold px-5 py-2 flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  {typeSaving && <RefreshCw size={13} className="animate-spin" />}
+                  <span>{typeSaving ? 'Enregistrement...' : 'Enregistrer le type'}</span>
                 </button>
               </div>
             </form>

@@ -301,6 +301,192 @@ export async function deleteDbBrand(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ---------------- PRODUCT TYPES ----------------
+
+export interface DbProductType {
+  id: string;
+  name: string;
+  slug: string;
+  image_url?: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export const defaultProductTypesList: { name: string; slug: string; image_url?: string }[] = [
+  { name: 'Perceuse', slug: 'perceuse', image_url: '/images/prod-12.webp' },
+  { name: 'Visseuse', slug: 'visseuse', image_url: '/images/prod-2.webp' },
+  { name: 'Meuleuse', slug: 'meuleuse', image_url: '/images/prod-8.webp' },
+  { name: 'Niveau laser', slug: 'niveau-laser', image_url: '/images/prod-3.webp' },
+  { name: 'Pompe à eau', slug: 'pompe-a-eau', image_url: '/images/prod-10.webp' },
+  { name: 'Chaussures de sécurité', slug: 'chaussures-de-securite', image_url: '' },
+  { name: 'Poste à souder', slug: 'poste-a-souder', image_url: '/images/prod-5.webp' },
+  { name: 'Compresseur', slug: 'compresseur', image_url: '/images/prod-7.webp' },
+  { name: 'Palan & levage', slug: 'palan-levage', image_url: '/images/prod-1.webp' },
+  { name: 'Diagnostic auto', slug: 'diagnostic-auto', image_url: '/images/prod-9.webp' },
+  { name: 'Éclairage', slug: 'eclairage', image_url: '/images/prod-4.webp' },
+  { name: 'Multimètre & mesure', slug: 'multimetre-mesure', image_url: '/images/prod-6.webp' },
+  { name: 'Plomberie & tuyauterie', slug: 'plomberie-tuyauterie', image_url: '' },
+];
+
+export async function getDbProductTypes(): Promise<DbProductType[]> {
+  let localData: DbProductType[] = [];
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('kadya_product_types') : null;
+    if (raw) {
+      localData = JSON.parse(raw);
+    }
+  } catch (e) {
+    console.error('Error reading local product types:', e);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('product_types')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (!error && data && data.length > 0) {
+      return data;
+    }
+  } catch (err) {
+    // Supabase table may not exist yet, fallback gracefully
+  }
+
+  if (localData.length > 0) {
+    return localData;
+  }
+
+  const initial: DbProductType[] = defaultProductTypesList.map((t, idx) => ({
+    id: t.slug,
+    name: t.name,
+    slug: t.slug,
+    image_url: t.image_url || '',
+    sort_order: idx + 1,
+    is_active: true,
+  }));
+
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('kadya_product_types', JSON.stringify(initial));
+    } catch (e) {}
+  }
+
+  return initial;
+}
+
+export async function uploadProductTypeImage(file: File, slug: string): Promise<string> {
+  const fileExt = file.name.split('.').pop() || 'png';
+  const fileName = `types/${slug}-${Date.now()}.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('store-images')
+    .upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: true,
+    });
+
+  if (uploadError) {
+    throw new Error(`Erreur lors du téléchargement de l'image: ${uploadError.message}`);
+  }
+
+  const { data } = supabase.storage
+    .from('store-images')
+    .getPublicUrl(fileName);
+
+  return data.publicUrl;
+}
+
+export async function saveDbProductType(
+  typeData: Partial<DbProductType>,
+  imageFile?: File
+): Promise<DbProductType> {
+  let imageUrl = typeData.image_url;
+  const slug = typeData.slug || typeData.name?.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') || 'type';
+
+  if (imageFile) {
+    imageUrl = await uploadProductTypeImage(imageFile, slug);
+  }
+
+  const item: DbProductType = {
+    id: typeData.id || slug,
+    name: typeData.name || '',
+    slug,
+    image_url: imageUrl || '',
+    sort_order: typeData.sort_order ?? 0,
+    is_active: typeData.is_active ?? true,
+  };
+
+  try {
+    const isUuid = isValidUuid(item.id);
+    if (isUuid) {
+      const { data, error } = await supabase
+        .from('product_types')
+        .update({
+          name: item.name,
+          slug: item.slug,
+          image_url: item.image_url,
+          sort_order: item.sort_order,
+          is_active: item.is_active,
+        })
+        .eq('id', item.id)
+        .select()
+        .single();
+      if (!error && data) return data;
+    } else {
+      const { data, error } = await supabase
+        .from('product_types')
+        .upsert(
+          {
+            name: item.name,
+            slug: item.slug,
+            image_url: item.image_url,
+            sort_order: item.sort_order,
+            is_active: item.is_active,
+          },
+          { onConflict: 'slug' }
+        )
+        .select()
+        .single();
+      if (!error && data) return data;
+    }
+  } catch (e) {
+    // Graceful fallback to localStorage
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      const existing = await getDbProductTypes();
+      const updated = existing.filter((t) => t.slug !== item.slug && t.id !== item.id);
+      updated.push(item);
+      localStorage.setItem('kadya_product_types', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  return item;
+}
+
+export async function deleteDbProductType(idOrSlug: string): Promise<void> {
+  try {
+    await supabase.from('product_types').delete().or(`id.eq.${idOrSlug},slug.eq.${idOrSlug}`);
+  } catch (e) {
+    // Ignore error
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      const existing = await getDbProductTypes();
+      const updated = existing.filter((t) => t.slug !== idOrSlug && t.id !== idOrSlug);
+      localStorage.setItem('kadya_product_types', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+}
+
 // ---------------- PRODUCTS ----------------
 
 export interface DbProduct {
