@@ -447,16 +447,17 @@ function CategoryPage() {
   return (
     <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
       <Breadcrumbs items={[{ label: 'Boutique', href: '/shop' }, { label: category.label }]} />
-      <div className="relative overflow-hidden bg-[var(--ed-ink)] px-6 py-12 text-white md:px-12 md:py-16">
-        <div className="absolute -right-16 -top-20 h-72 w-72 rounded-full border-[48px] border-white/10" />
-        <div className="relative max-w-2xl">
-          <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">{category.count}</p>
-          <h1 className="ed-display mt-3 text-6xl font-bold leading-none md:text-7xl">{category.label}</h1>
-          <p className="mt-5 max-w-lg text-sm leading-6 text-white/65">{category.sub ? `${category.sub}. ` : ''}Des solutions choisies pour les exigences du chantier, de l’atelier et de la maintenance.</p>
+      <div className="flex flex-col justify-between gap-4 border-b border-[var(--ed-line)] pb-6 pt-2 md:flex-row md:items-end">
+        <div>
+          <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-rust)]">Catégorie</p>
+          <h1 className="ed-display mt-2 text-5xl md:text-6xl font-bold leading-none text-[var(--ed-ink)]">{category.label}</h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">{category.sub ? `${category.sub}. ` : ''}Des solutions choisies pour les exigences du chantier, de l’atelier et de la maintenance.</p>
         </div>
+        <Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)]" data-testid="link-category-all">
+          Voir tout le catalogue <ArrowRight size={16} />
+        </Link>
       </div>
-      <div className="mt-10">
-        <SectionHeading eyebrow="La sélection KADYA DZ" title="Prêt à partir." action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)]" data-testid="link-category-all">Voir tout <ArrowRight size={16} /></Link>} />
+      <div className="mt-8">
         <ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} emptyLabel="Aucun produit dans cette catégorie pour le moment." />
       </div>
     </div>
