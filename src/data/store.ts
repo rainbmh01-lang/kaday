@@ -17,6 +17,8 @@ export type Product = {
   color: string;
   icon: string;
   imageUrl?: string;
+  images?: string[];
+  techSummary?: string;
 };
 
 export type CatalogLink = {

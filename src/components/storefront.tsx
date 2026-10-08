@@ -105,12 +105,13 @@ export function Logo({ compact = false }: { compact?: boolean }) {
   );
 }
 
-export function ProductVisual({ product, large = false }: { product: Product; large?: boolean }) {
-  if (product.imageUrl) {
+export function ProductVisual({ product, large = false, activeImageUrl }: { product: Product; large?: boolean; activeImageUrl?: string }) {
+  const displayImg = activeImageUrl || product.imageUrl || (product.images && product.images.length > 0 ? product.images[0] : undefined);
+  if (displayImg) {
     return (
       <div className={`relative flex items-center justify-center overflow-hidden bg-white p-3 sm:p-4 ${large ? 'aspect-square w-full max-w-[320px] sm:max-w-[360px] mx-auto md:max-w-none md:min-h-[340px]' : 'h-[190px]'}`}>
         <img
-          src={product.imageUrl}
+          src={displayImg}
           alt={product.name}
           className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
@@ -222,12 +223,13 @@ export function Footer() {
   );
 }
 
-export function SearchOverlay({ open, onClose, onSubmit }: { open: boolean; onClose: () => void; onSubmit: (value: string) => void }) {
+export function SearchOverlay({ open, onClose, onSubmit, productsList }: { open: boolean; onClose: () => void; onSubmit: (value: string) => void; productsList?: Product[] }) {
   const [value, setValue] = useState('');
+  const sourceProducts = productsList && productsList.length > 0 ? productsList : products;
   const suggestions = useMemo(() => {
     if (!value.trim()) return ['Perceuse-visseuse 20V', 'Niveau laser', 'Poste à souder inverter', 'Projecteur LED chantier'];
     const lower = value.toLowerCase().trim();
-    return products
+    return sourceProducts
       .filter((p) => `${p.name} ${p.brand}`.toLowerCase().includes(lower))
       .sort((a, b) => {
         const aName = a.name.toLowerCase();

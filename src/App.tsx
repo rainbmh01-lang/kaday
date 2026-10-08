@@ -64,7 +64,7 @@ import {
 import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
 import StoreAdmin from '@/pages/store-admin';
-import { getDbCategories, getDbBrands, type DbBrand } from '@/lib/store-data';
+import { getDbCategories, getDbBrands, getDbProducts, type DbBrand, type DbProduct } from '@/lib/store-data';
 import heroWorkshop from '@/assets/edengroupes-workshop-hero.jpg';
 import {
   trackPageView,
@@ -75,6 +75,38 @@ import {
 
 const queryClient = new QueryClient();
 
+function mapDbProductToProduct(
+  p: DbProduct,
+  categoryMap: Map<string, string>
+): Product {
+  const catSlug = p.category_slug || 'outillage-electroportatif';
+  const catLabel = categoryMap.get(catSlug) || catSlug;
+  const primaryImg = p.images && p.images.length > 0 ? p.images[0] : undefined;
+
+  return {
+    id: p.id,
+    slug: p.slug || p.id,
+    name: p.name,
+    brand: p.brand || p.brand_name || 'KADYA',
+    category: catSlug,
+    categoryLabel: catLabel,
+    profession: 'macon',
+    price: Number(p.price) || 0,
+    oldPrice: p.old_price ? Number(p.old_price) : undefined,
+    rating: 4.8,
+    reviews: 14,
+    badge: p.old_price && Number(p.old_price) > Number(p.price) ? 'PROMO' : undefined,
+    stock: p.in_stock ? 'En stock' : 'Rupture',
+    summary: p.summary || p.tech_summary || '',
+    specs: Array.isArray(p.specs) && p.specs.length > 0 ? p.specs : [],
+    color: '#f0b83d',
+    icon: 'wrench',
+    imageUrl: primaryImg,
+    images: Array.isArray(p.images) && p.images.length > 0 ? p.images : (primaryImg ? [primaryImg] : []),
+    techSummary: p.tech_summary,
+  };
+}
+
 type StoreContextValue = {
   cart: CartLine[];
   favorites: string[];
@@ -82,6 +114,10 @@ type StoreContextValue = {
   toggleFavorite: (product: Product) => void;
   updateQuantity: (id: string, quantity: number) => void;
   removeLine: (id: string) => void;
+  allProducts: Product[];
+  liveCategories: CatalogLink[];
+  liveBrands: DbBrand[];
+  isLoadingProducts: boolean;
 };
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -98,6 +134,58 @@ function Shell({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [location, setLocation] = useLocation();
+
+  const [allProducts, setAllProducts] = useState<Product[]>(products);
+  const [liveCategories, setLiveCategories] = useState<CatalogLink[]>(categories);
+  const [liveBrands, setLiveBrands] = useState<DbBrand[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [cats, brs, prods] = await Promise.all([
+          getDbCategories(),
+          getDbBrands(),
+          getDbProducts(false),
+        ]);
+
+        const catMap = new Map<string, string>();
+        if (cats && cats.length > 0) {
+          const formattedCats: CatalogLink[] = cats
+            .filter((c) => c.is_active)
+            .map((c) => {
+              catMap.set(c.slug, c.name);
+              return {
+                slug: c.slug,
+                label: c.name,
+                sub: c.description || '',
+                count: 'Découvrir',
+                color: '#f0b83d',
+                icon: 'drill',
+                image_url: c.image_url,
+              };
+            });
+          setLiveCategories(formattedCats);
+        } else {
+          categories.forEach((c) => catMap.set(c.slug, c.label));
+        }
+
+        if (brs && brs.length > 0) {
+          setLiveBrands(brs.filter((b) => b.is_active));
+        }
+
+        if (prods && prods.length > 0) {
+          const mappedProds = prods.map((p) => mapDbProductToProduct(p, catMap));
+          setAllProducts(mappedProds);
+        }
+      } catch (err) {
+        console.error('Error initializing store data:', err);
+      } finally {
+        setIsLoadingProducts(false);
+      }
+    }
+    loadData();
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -120,43 +208,33 @@ function Shell({ children }: { children: React.ReactNode }) {
   const removeLine = (id: string) => setCart((current) => current.filter((line) => line.product.id !== id));
   const onSearch = (value: string) => setLocation(`/search?q=${encodeURIComponent(value)}`);
 
-  const store = { cart, favorites, addToCart, toggleFavorite, updateQuantity, removeLine };
+  const store = {
+    cart,
+    favorites,
+    addToCart,
+    toggleFavorite,
+    updateQuantity,
+    removeLine,
+    allProducts,
+    liveCategories,
+    liveBrands,
+    isLoadingProducts,
+  };
   return <StoreContext.Provider value={store}><div className="min-h-[100dvh] overflow-x-hidden bg-[var(--ed-paper)] text-[var(--ed-ink)]">
     <Header cartCount={cartCount} favoriteCount={favorites.length} onOpenSearch={() => setSearchOpen(true)} />
     <main>{children}</main>
     <Footer />
     <CartDrawer open={drawerOpen} lines={cart} onClose={() => setDrawerOpen(false)} onQuantity={updateQuantity} onRemove={removeLine} />
-    <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} onSubmit={onSearch} />
+    <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} onSubmit={onSearch} productsList={allProducts} />
   </div></StoreContext.Provider>;
 }
 
 function Home() {
   const [carousel, setCarousel] = useState(0);
   const [cartFlash, setCartFlash] = useState<Product | null>(null);
-  const { favorites, addToCart, toggleFavorite } = useStore();
-  const [liveCategories, setLiveCategories] = useState<any[]>(categories);
+  const { favorites, addToCart, toggleFavorite, allProducts, liveCategories } = useStore();
 
-  useEffect(() => {
-    getDbCategories().then((cats) => {
-      if (cats && cats.length > 0) {
-        setLiveCategories(
-          cats
-            .filter((c) => c.is_active)
-            .map((c) => ({
-              slug: c.slug,
-              label: c.name,
-              sub: c.description || '',
-              count: 'Découvrir',
-              color: '#f0b83d',
-              icon: 'drill',
-              image_url: c.image_url,
-            }))
-        );
-      }
-    });
-  }, []);
-
-  const featured = products.slice(0, 8);
+  const featured = allProducts.slice(0, 8);
   const add = (product: Product) => { addToCart(product); setCartFlash(product); window.setTimeout(() => setCartFlash(null), 1200); };
   return <div>
     <section className="relative overflow-hidden bg-[var(--ed-ink)] text-white">
@@ -189,44 +267,27 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
   const [category, setCategory] = useState<string>();
   const [brand, setBrand] = useState<string>();
   const [sort, setSort] = useState('featured');
-  const [liveCategories, setLiveCategories] = useState<any[]>(categories);
-  const [liveBrands, setLiveBrands] = useState<DbBrand[]>([]);
-  const { favorites, addToCart, toggleFavorite } = useStore();
+  const { favorites, addToCart, toggleFavorite, allProducts, liveCategories, liveBrands } = useStore();
   const [mobileFilters, setMobileFilters] = useState(false);
   const [mobileBrandsOpen, setMobileBrandsOpen] = useState(false);
 
-  useEffect(() => {
-    getDbCategories().then((cats) => {
-      if (cats && cats.length > 0) {
-        setLiveCategories(
-          cats
-            .filter((c) => c.is_active)
-            .map((c) => ({
-              slug: c.slug,
-              label: c.name,
-              sub: c.description || '',
-              count: 'Découvrir',
-              color: '#f0b83d',
-              icon: 'drill',
-              image_url: c.image_url,
-            }))
-        );
-      }
-    });
-
-    getDbBrands().then((brs) => {
-      if (brs && brs.length > 0) {
-        setLiveBrands(brs.filter((b) => b.is_active));
-      }
-    });
-  }, []);
-
-  const currentBrandList = liveBrands.length > 0 ? liveBrands.map((b) => b.name) : brands;
+  const currentBrandList = useMemo(() => {
+    if (liveBrands.length > 0) {
+      return liveBrands.map((b) => b.name);
+    }
+    const distinct = Array.from(new Set(allProducts.map((p) => p.brand).filter(Boolean)));
+    return distinct.length > 0 ? distinct : brands;
+  }, [liveBrands, allProducts]);
 
   const filtered = useMemo(() => {
-    const list = products.filter((product) => (!category || product.category === category) && (!brand || product.brand.toLowerCase() === brand.toLowerCase()) && (mode !== 'promotions' || product.oldPrice));
+    const list = allProducts.filter((product) => {
+      const matchCat = !category || product.category.toLowerCase() === category.toLowerCase() || (product.categoryLabel && product.categoryLabel.toLowerCase() === category.toLowerCase());
+      const matchBrand = !brand || product.brand.toLowerCase() === brand.toLowerCase();
+      const matchPromo = mode !== 'promotions' || Boolean(product.oldPrice && product.oldPrice > product.price);
+      return matchCat && matchBrand && matchPromo;
+    });
     return [...list].sort((a, b) => sort === 'price-low' ? a.price - b.price : sort === 'price-high' ? b.price - a.price : b.rating - a.rating);
-  }, [category, brand, sort, mode]);
+  }, [allProducts, category, brand, sort, mode]);
 
   return (
     <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
@@ -372,44 +433,48 @@ function CatalogPage({ mode }: { mode?: 'promotions' | 'shop' }) {
 
 function CategoryPage() {
   const { category: slug } = useParams<{ category: string }>();
-  const [category, setCategory] = useState<CatalogLink | undefined>(() => findCategory(slug));
-  const { favorites, addToCart, toggleFavorite } = useStore();
-  const items = products.filter((product) => product.category === slug);
+  const { favorites, addToCart, toggleFavorite, allProducts, liveCategories } = useStore();
+  const category = liveCategories.find((c) => c.slug.toLowerCase() === slug?.toLowerCase()) || findCategory(slug);
 
-  useEffect(() => {
-    getDbCategories().then((cats) => {
-      const found = cats.find((c) => c.slug === slug);
-      if (found) {
-        setCategory({
-          slug: found.slug,
-          label: found.name,
-          sub: found.description || '',
-          count: 'Découvrir',
-          color: '#f0b83d',
-          icon: 'drill',
-        });
-      }
-    });
-  }, [slug]);
+  const items = useMemo(() => {
+    return allProducts.filter((product) =>
+      product.category.toLowerCase() === slug?.toLowerCase() ||
+      (product.categoryLabel && product.categoryLabel.toLowerCase() === slug?.toLowerCase())
+    );
+  }, [allProducts, slug]);
 
   if (!category) return <NotFound />;
-  return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Boutique', href: '/shop' }, { label: category.label }]} /><div className="relative overflow-hidden bg-[var(--ed-ink)] px-6 py-12 text-white md:px-12 md:py-16"><div className="absolute -right-16 -top-20 h-72 w-72 rounded-full border-[48px] border-white/10" /><div className="relative max-w-2xl"><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">{category.count}</p><h1 className="ed-display mt-3 text-6xl font-bold leading-none md:text-7xl">{category.label}</h1><p className="mt-5 max-w-lg text-sm leading-6 text-white/65">{category.sub}. Des solutions choisies pour les exigences du chantier, de l’atelier et de la maintenance.</p></div></div><div className="mt-10"><SectionHeading eyebrow="La sélection KADYA DZ" title="Prêt à partir." action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)]" data-testid="link-category-all">Voir tout <ArrowRight size={16} /></Link>} /><ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div>;
+  return (
+    <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
+      <Breadcrumbs items={[{ label: 'Boutique', href: '/shop' }, { label: category.label }]} />
+      <div className="relative overflow-hidden bg-[var(--ed-ink)] px-6 py-12 text-white md:px-12 md:py-16">
+        <div className="absolute -right-16 -top-20 h-72 w-72 rounded-full border-[48px] border-white/10" />
+        <div className="relative max-w-2xl">
+          <p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-yellow)]">{category.count}</p>
+          <h1 className="ed-display mt-3 text-6xl font-bold leading-none md:text-7xl">{category.label}</h1>
+          <p className="mt-5 max-w-lg text-sm leading-6 text-white/65">{category.sub ? `${category.sub}. ` : ''}Des solutions choisies pour les exigences du chantier, de l’atelier et de la maintenance.</p>
+        </div>
+      </div>
+      <div className="mt-10">
+        <SectionHeading eyebrow="La sélection KADYA DZ" title="Prêt à partir." action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)]" data-testid="link-category-all">Voir tout <ArrowRight size={16} /></Link>} />
+        <ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} emptyLabel="Aucun produit dans cette catégorie pour le moment." />
+      </div>
+    </div>
+  );
 }
 
 function BrandPage() {
   const { brand: brandParam } = useParams<{ brand: string }>();
-  const [currentBrand, setCurrentBrand] = useState<string>(() => findBrand(brandParam) || brandParam || '');
-  const { favorites, addToCart, toggleFavorite } = useStore();
-  const items = products.filter((product) => product.brand.toLowerCase() === brandParam?.toLowerCase());
+  const { favorites, addToCart, toggleFavorite, allProducts, liveBrands } = useStore();
 
-  useEffect(() => {
-    getDbBrands().then((brs) => {
-      const match = brs.find((b) => b.name.toLowerCase() === brandParam?.toLowerCase() || b.slug.toLowerCase() === brandParam?.toLowerCase());
-      if (match) {
-        setCurrentBrand(match.name);
-      }
-    });
-  }, [brandParam]);
+  const currentBrand = useMemo(() => {
+    const match = liveBrands.find((b) => b.name.toLowerCase() === brandParam?.toLowerCase() || b.slug.toLowerCase() === brandParam?.toLowerCase());
+    return match ? match.name : (findBrand(brandParam) || brandParam || '');
+  }, [liveBrands, brandParam]);
+
+  const items = useMemo(() => {
+    return allProducts.filter((product) => product.brand.toLowerCase() === brandParam?.toLowerCase());
+  }, [allProducts, brandParam]);
 
   if (!currentBrand) return <NotFound />;
   return (
@@ -426,7 +491,7 @@ function BrandPage() {
         </Link>
       </div>
       <div className="mt-10">
-        <ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} />
+        <ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} emptyLabel="Aucun produit trouvé pour cette marque." />
       </div>
     </div>
   );
@@ -435,16 +500,19 @@ function BrandPage() {
 function ProfessionPage() {
   const { profession: slug } = useParams<{ profession: string }>();
   const profession = findProfession(slug);
-  const { favorites, addToCart, toggleFavorite } = useStore();
-  const items = products.filter((product) => product.profession === slug);
+  const { favorites, addToCart, toggleFavorite, allProducts } = useStore();
+  const items = useMemo(() => {
+    return allProducts.filter((product) => product.profession === slug || product.category.toLowerCase() === slug?.toLowerCase());
+  }, [allProducts, slug]);
   if (!profession) return <NotFound />;
   return <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12"><Breadcrumbs items={[{ label: 'Par métier', href: '/professions' }, { label: profession.label }]} /><div className="grid gap-8 bg-[var(--ed-yellow)] p-7 md:grid-cols-[1fr_.7fr] md:p-12"><div><p className="ed-mono text-[10px] uppercase tracking-[.2em] text-[var(--ed-ink)]/60">Votre sélection métier</p><h1 className="ed-display mt-3 text-7xl font-bold leading-[.82] text-[var(--ed-ink)]">{profession.label}</h1><p className="mt-6 max-w-lg text-sm leading-6 text-[var(--ed-ink)]/70">Les outils qui restent à portée de main quand le chantier, l’installation ou la réparation ne peut pas attendre.</p></div><div className="flex items-end justify-end"><div className="border-l-2 border-[var(--ed-ink)]/25 pl-5"><p className="ed-display text-5xl font-bold text-[var(--ed-ink)]">{profession.count.split(' ')[0]}</p><p className="mt-1 text-sm text-[var(--ed-ink)]/60">références à découvrir</p></div></div></div><div className="mt-10"><ProductGrid items={items} onAdd={addToCart} onFavorite={toggleFavorite} favorites={favorites} /></div></div>;
 }
 
 function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
-  const product = findProduct(slug);
-  const [quantity, setQuantity] = useState(1);
+  const { allProducts } = useStore();
+  const product = allProducts.find((p) => p.slug.toLowerCase() === slug?.toLowerCase() || p.id === slug) || findProduct(slug);
+  const [activeImageIdx, setActiveImageIdx] = useState(0);
 
   useEffect(() => {
     if (product) {
@@ -453,11 +521,34 @@ function ProductPage() {
   }, [product?.id]);
 
   if (!product) return <NotFound />;
+
+  const displayImages = product.images && product.images.length > 0
+    ? product.images
+    : (product.imageUrl ? [product.imageUrl] : []);
+  const currentImg = displayImages[activeImageIdx] || displayImages[0];
+
   return (
     <div id="product-main" className="mx-auto max-w-[1440px] px-4 py-4 sm:px-5 sm:py-6 md:py-12">
       <div className="grid gap-5 md:grid-cols-[1.05fr_.95fr] md:gap-8">
-        <div className="border border-[var(--ed-line)] bg-white">
-          <ProductVisual product={product} large />
+        <div className="border border-[var(--ed-line)] bg-white flex flex-col justify-between">
+          <ProductVisual product={product} large activeImageUrl={currentImg} />
+          {displayImages.length > 1 && (
+            <div className="flex gap-2 p-3 border-t border-[var(--ed-line)] overflow-x-auto bg-slate-50">
+              {displayImages.map((img, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveImageIdx(idx)}
+                  className={`h-16 w-16 shrink-0 border-2 bg-white p-1 transition-all rounded ${
+                    activeImageIdx === idx ? 'border-[var(--ed-rust)] ring-2 ring-[var(--ed-rust)]/20' : 'border-slate-200 hover:border-slate-400'
+                  }`}
+                  aria-label={`Photo ${idx + 1}`}
+                >
+                  <img src={img} alt={`Photo ${idx + 1}`} className="h-full w-full object-contain" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="pt-1 md:pt-2">
@@ -481,23 +572,25 @@ function ProductPage() {
           <div className="mt-4 sm:mt-6">
             <LeadForm productName={product.name} unitPrice={product.price} initialQuantity={1} />
           </div>
-
-
         </div>
       </div>
 
       <div className="mt-16 grid gap-8 md:grid-cols-[.8fr_1.2fr]">
         <div>
           <h2 className="ed-display text-4xl font-bold">Fiche technique</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">{product.summary}</p>
+          <p className="mt-3 text-sm leading-6 text-slate-600">{product.techSummary || product.summary}</p>
         </div>
         <div className="border-t border-[var(--ed-line)]">
-          {product.specs.map((spec, index) => (
-            <div key={spec} className="flex items-center justify-between border-b border-[var(--ed-line)] py-4 text-sm">
-              <span className="text-slate-500">0{index + 1}</span>
-              <span className="font-semibold text-[var(--ed-ink)]">{spec}</span>
-            </div>
-          ))}
+          {product.specs.length > 0 ? (
+            product.specs.map((spec, index) => (
+              <div key={index} className="flex items-center justify-between border-b border-[var(--ed-line)] py-4 text-sm">
+                <span className="text-slate-500">{String(index + 1).padStart(2, '0')}</span>
+                <span className="font-semibold text-[var(--ed-ink)]">{spec}</span>
+              </div>
+            ))
+          ) : (
+            <div className="py-6 text-slate-400 text-sm">Aucune spécification technique renseignée.</div>
+          )}
         </div>
       </div>
     </div>
@@ -507,20 +600,20 @@ function ProductPage() {
 function SearchPage() {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('q') || '' : '');
-  const { favorites, addToCart, toggleFavorite } = useStore();
+  const { favorites, addToCart, toggleFavorite, allProducts } = useStore();
 
   const results = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
-    if (!trimmed) return products;
+    if (!trimmed) return allProducts;
 
     const terms = trimmed.split(/\s+/).filter(Boolean);
 
-    return products
+    return allProducts
       .map((product) => {
         const nameLower = product.name.toLowerCase();
         const brandLower = product.brand.toLowerCase();
-        const catLower = product.categoryLabel.toLowerCase();
-        const summaryLower = product.summary.toLowerCase();
+        const catLower = (product.categoryLabel || product.category).toLowerCase();
+        const summaryLower = (product.summary || '').toLowerCase();
         const specsLower = product.specs.join(' ').toLowerCase();
 
         let score = 0;
@@ -574,7 +667,7 @@ function SearchPage() {
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)
       .map((item) => item.product);
-  }, [query]);
+  }, [allProducts, query]);
 
   return (
     <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
@@ -601,19 +694,13 @@ function SearchPage() {
 
 function CollectionsPage({ type }: { type: 'brands' | 'professions' }) {
   const isBrands = type === 'brands';
-  const [liveBrands, setLiveBrands] = useState<DbBrand[]>([]);
+  const { liveBrands, allProducts } = useStore();
 
-  useEffect(() => {
-    if (isBrands) {
-      getDbBrands().then((brs) => {
-        if (brs && brs.length > 0) {
-          setLiveBrands(brs.filter((b) => b.is_active));
-        }
-      });
-    }
-  }, [isBrands]);
-
-  const brandItems = liveBrands.length > 0 ? liveBrands.map((b) => b.name) : brands;
+  const brandItems = useMemo(() => {
+    if (liveBrands.length > 0) return liveBrands.map((b) => b.name);
+    const distinct = Array.from(new Set(allProducts.map((p) => p.brand).filter(Boolean)));
+    return distinct.length > 0 ? distinct : brands;
+  }, [liveBrands, allProducts]);
 
   return (
     <div className="mx-auto max-w-[1440px] px-5 py-8 md:py-12">
