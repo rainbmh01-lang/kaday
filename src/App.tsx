@@ -237,7 +237,6 @@ function Home() {
   const [carousel, setCarousel] = useState(0);
   const [cartFlash, setCartFlash] = useState<Product | null>(null);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
-  const [productsExpanded, setProductsExpanded] = useState(false);
   const { favorites, addToCart, toggleFavorite, allProducts, liveCategories } = useStore();
 
   const featured = allProducts;
@@ -320,23 +319,17 @@ function Home() {
       </div>
     </section>
 
-    {/* Section Produits Essentiels avec aperçu partiel et expansion au clic */}
+    {/* Section Produits Essentiels avec aperçu partiel et lien vers /shop (Tout pour travailler) */}
     <section className="bg-[#eae7df]">
       <div className="mx-auto max-w-[1440px] px-5 py-16 md:py-20">
         <SectionHeading
           eyebrow="Les essentiels du moment"
           title="Ce qui part en atelier."
           sub="Une sélection courte, utile, disponible maintenant — avec des prix affichés en dinars, sans détour."
-          action={<Link href="/promotions" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)]" data-testid="link-featured-all">Voir les promotions <ArrowRight size={16} /></Link>}
+          action={<Link href="/shop" className="flex items-center gap-2 text-sm font-bold text-[var(--ed-rust)] hover:text-[var(--ed-ink)]" data-testid="link-featured-all">Voir toute la boutique <ArrowRight size={16} /></Link>}
         />
         <div className="relative">
-          <div
-            className={`overflow-hidden transition-[max-height] duration-500 ease-in-out ${
-              productsExpanded || featured.length <= 4
-                ? 'max-h-[5000px]'
-                : 'max-h-[880px] md:max-h-[530px]'
-            }`}
-          >
+          <div className="overflow-hidden max-h-[880px] md:max-h-[530px]">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
               {featured.map((product) => (
                 <ProductCard
@@ -350,40 +343,23 @@ function Home() {
             </div>
           </div>
 
-          {!productsExpanded && featured.length > 4 && (
-            <div
-              onClick={() => setProductsExpanded(true)}
+          {featured.length > 4 && (
+            <Link
+              href="/shop"
               className="absolute bottom-0 inset-x-0 h-44 bg-gradient-to-t from-[#eae7df] via-[#eae7df]/85 to-transparent flex flex-col items-center justify-end pb-3 cursor-pointer group z-20"
-              title="Afficher tous les produits"
+              title="Accéder à la boutique (Tout pour travailler)"
+              data-testid="link-home-view-all-products"
             >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setProductsExpanded(true);
-                }}
+              <span
                 className="ed-button inline-flex items-center gap-2 border-2 border-[var(--ed-ink)] bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--ed-ink)] shadow-md group-hover:bg-[var(--ed-yellow)] group-hover:border-[var(--ed-ink)] transition-all transform group-hover:-translate-y-0.5"
               >
                 <span>Voir tous les produits ({featured.length})</span>
-                <ChevronDown size={16} className="transition-transform group-hover:translate-y-0.5" />
-              </button>
+                <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+              </span>
               <p className="mt-1 text-[11px] font-semibold text-slate-500 group-hover:text-[var(--ed-ink)]">
-                Cliquez pour afficher toute la sélection
+                Accéder au catalogue complet dans la boutique
               </p>
-            </div>
-          )}
-
-          {productsExpanded && featured.length > 4 && (
-            <div className="mt-6 flex justify-center">
-              <button
-                type="button"
-                onClick={() => setProductsExpanded(false)}
-                className="ed-button inline-flex items-center gap-2 border border-slate-300 bg-white px-5 py-2 text-xs font-bold uppercase tracking-wider text-slate-600 hover:border-[var(--ed-ink)] hover:text-[var(--ed-ink)] transition-colors shadow-xs"
-              >
-                <span>Réduire la liste</span>
-                <ChevronUp size={16} />
-              </button>
-            </div>
+            </Link>
           )}
         </div>
       </div>
