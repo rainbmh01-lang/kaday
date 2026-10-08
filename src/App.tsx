@@ -295,7 +295,7 @@ function Home() {
               }}
               className="ed-button inline-flex items-center gap-2 border-2 border-[var(--ed-ink)] bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--ed-ink)] shadow-md group-hover:bg-[var(--ed-yellow)] group-hover:border-[var(--ed-ink)] transition-all transform group-hover:-translate-y-0.5"
             >
-              <span>Voir toutes les catégories ({liveCategories.length})</span>
+              <span>Voir toutes les catégories</span>
               <ChevronDown size={16} className="transition-transform group-hover:translate-y-0.5" />
             </button>
             <p className="mt-1 text-[11px] font-semibold text-slate-500 group-hover:text-[var(--ed-ink)]">
@@ -353,7 +353,7 @@ function Home() {
               <span
                 className="ed-button inline-flex items-center gap-2 border-2 border-[var(--ed-ink)] bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-[var(--ed-ink)] shadow-md group-hover:bg-[var(--ed-yellow)] group-hover:border-[var(--ed-ink)] transition-all transform group-hover:-translate-y-0.5"
               >
-                <span>Voir tous les produits ({featured.length})</span>
+                <span>Voir tous les produits</span>
                 <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
               </span>
               <p className="mt-1 text-[11px] font-semibold text-slate-500 group-hover:text-[var(--ed-ink)]">
