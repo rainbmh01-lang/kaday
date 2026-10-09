@@ -1127,9 +1127,9 @@ function ProductPage() {
         <div className="border-t border-[var(--ed-line)]">
           {product.specs.length > 0 ? (
             product.specs.map((spec, index) => (
-              <div key={index} className="flex items-center justify-between border-b border-[var(--ed-line)] py-4 text-sm">
-                <span className="text-slate-500">{String(index + 1).padStart(2, '0')}</span>
-                <span className="font-semibold text-[var(--ed-ink)]">{spec}</span>
+              <div key={index} className="flex items-center justify-between border-b border-[var(--ed-line)] py-4 text-sm gap-4">
+                <span className="font-semibold text-[var(--ed-ink)] text-left">{spec}</span>
+                <span className="text-slate-500 shrink-0">{String(index + 1).padStart(2, '0')}</span>
               </div>
             ))
           ) : (
