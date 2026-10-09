@@ -46,6 +46,7 @@ import {
   getOrders,
   saveOrder,
   updateOrderStatus,
+  updateOrderNotes,
   deleteOrder,
   exportOrdersToCSV,
   syncOrderToGoogleSheet,
@@ -62,7 +63,11 @@ import { sendMetaEvent } from '@/lib/meta-tracker';
 const STATUS_COLORS: Record<OrderStatus, { bg: string; text: string; border: string }> = {
   Nouveau: { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200' },
   Confirmé: { bg: 'bg-blue-50', text: 'text-blue-800', border: 'border-blue-200' },
-  'En livraison': { bg: 'bg-purple-50', text: 'text-purple-800', border: 'border-purple-200' },
+  Reporté: { bg: 'bg-purple-50', text: 'text-purple-800', border: 'border-purple-200' },
+  'Tentative 1': { bg: 'bg-orange-50', text: 'text-orange-800', border: 'border-orange-200' },
+  'Tentative 2': { bg: 'bg-amber-100', text: 'text-amber-900', border: 'border-amber-300' },
+  'Tentative 3': { bg: 'bg-rose-100', text: 'text-rose-900', border: 'border-rose-300' },
+  'En livraison': { bg: 'bg-sky-50', text: 'text-sky-800', border: 'border-sky-200' },
   Livré: { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200' },
   Annulé: { bg: 'bg-rose-50', text: 'text-rose-800', border: 'border-rose-200' },
 };
@@ -85,6 +90,9 @@ export default function Dashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('Tous');
+  const [wilayaFilter, setWilayaFilter] = useState<string>('Toutes');
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [tempNoteText, setTempNoteText] = useState<string>('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
@@ -116,6 +124,11 @@ export default function Dashboard() {
     setOrders(getOrders());
   };
 
+  const availableWilayas = useMemo(() => {
+    const list = Array.from(new Set(orders.map((o) => o.wilaya).filter(Boolean)));
+    return list.sort();
+  }, [orders]);
+
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       const matchSearch =
@@ -126,9 +139,18 @@ export default function Dashboard() {
         o.wilaya.toLowerCase().includes(search.toLowerCase()) ||
         o.productName.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === 'Tous' || o.status === statusFilter;
-      return matchSearch && matchStatus;
+      const matchWilaya =
+        wilayaFilter === 'Toutes' ||
+        o.wilaya.toLowerCase().includes(wilayaFilter.toLowerCase());
+      return matchSearch && matchStatus && matchWilaya;
     });
-  }, [orders, search, statusFilter]);
+  }, [orders, search, statusFilter, wilayaFilter]);
+
+  const handleNoteSave = (orderId: string) => {
+    updateOrderNotes(orderId, tempNoteText);
+    setEditingNoteId(null);
+    refreshOrders();
+  };
 
   // Analytics Metrics
   const stats = useMemo(() => {
@@ -158,14 +180,21 @@ export default function Dashboard() {
     const counts: Record<string, number> = {
       Nouveau: 0,
       Confirmé: 0,
+      Reporté: 0,
+      'Tentative 1': 0,
+      'Tentative 2': 0,
+      'Tentative 3': 0,
       'En livraison': 0,
       Livré: 0,
       Annulé: 0,
     };
     orders.forEach((o) => {
       if (counts[o.status] !== undefined) counts[o.status]++;
+      else counts.Nouveau = (counts.Nouveau || 0) + 1;
     });
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+    return Object.entries(counts)
+      .filter(([_, value]) => value > 0)
+      .map(([name, value]) => ({ name, value }));
   }, [orders]);
 
   // Chart: Wilaya breakdown
@@ -328,11 +357,17 @@ export default function Dashboard() {
     }
   };
 
-  const appsScriptCode = `var HEADERS = [
-  "N° Commande / رقم الطلب", "Date / التاريخ", "Nom & Prénom / الاسم واللقب",
-  "Téléphone / رقم الهاتف", "الولاية", "البلدية / العنوان",
-  "Type de livraison / نوع التوصيل", "Produit / المنتج", "Quantité / الكمية",
-  "سعر المنتج", "تكلفة الشحن", "المجموع الإجمالي", "Statut / حالة الطلب", "Remarques / ملاحظات"
+  const appsScriptCode = `/**
+ * Kadya - Script Google Apps Script 12 Colonnes (Synchronisation Bidirectionnelle)
+ * Colonnes:
+ * 1. N° Commande | 2. Date | 3. Nom & Prénom | 4. Statut | 5. Téléphone | 6. Wilaya
+ * 7. Commune | 8. Produit / Réf | 9. Mode de livraison | 10. Tarif de livraison | 11. Total | 12. Remarques
+ */
+
+var HEADERS = [
+  "N° Commande", "Date", "Nom & Prénom", "Statut",
+  "Téléphone", "Wilaya", "Commune", "Produit / Réf",
+  "Mode de livraison", "Tarif de livraison", "Total", "Remarques"
 ];
 
 function doGet(e) {
@@ -342,29 +377,45 @@ function doGet(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getActiveSheet();
     var rows = sheet.getDataRange().getValues();
-    if (rows.length < 2) return ContentService.createTextOutput(JSON.stringify({ success: true, total: 0, orders: [] })).setMimeType(ContentService.MimeType.JSON);
+    if (rows.length < 2) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        total: 0,
+        orders: []
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     var orders = [];
     for (var i = 1; i < rows.length; i++) {
       var r = rows[i];
       if (!r[0]) continue;
       orders.push({
+        rowIndex: i + 1,
         id: String(r[0] || "").trim(),
         date: String(r[1] || "").trim(),
-        fullName: String(r[2] || "").trim(),
-        phone: String(r[3] || "").replace(/^'/, "").trim(),
-        wilaya: String(r[4] || "").trim(),
-        commune: String(r[5] || "").trim(),
-        deliveryType: (String(r[6] || "").indexOf("Bureau") !== -1 || String(r[6] || "").indexOf("المكتب") !== -1) ? "desk" : "home",
-        productName: String(r[7] || "").trim(),
-        quantity: parseInt(r[8], 10) || 1,
-        total: parseInt(String(r[11] || "").replace(/[^\\d]/g, ""), 10) || 0,
-        status: String(r[12] || "Nouveau").indexOf("Confirm") !== -1 ? "Confirmé" : String(r[12] || "").indexOf("livraison") !== -1 ? "En livraison" : String(r[12] || "").indexOf("Livr") !== -1 ? "Livré" : String(r[12] || "").indexOf("Annul") !== -1 ? "Annulé" : "Nouveau",
-        notes: String(r[13] || "").trim()
+        customer: String(r[2] || "").trim(),
+        status: String(r[3] || "Nouveau").trim(),
+        phone: String(r[4] || "").replace(/^'/, "").trim(),
+        wilaya: String(r[5] || "").trim(),
+        commune: String(r[6] || "").trim(),
+        size: String(r[7] || "").trim(),
+        shipping: String(r[8] || "").trim(),
+        shippingFee: String(r[9] || "").trim(),
+        total: String(r[10] || "").trim(),
+        notes: String(r[11] || "").trim()
       });
     }
-    return ContentService.createTextOutput(JSON.stringify({ success: true, total: orders.length, orders: orders })).setMimeType(ContentService.MimeType.JSON);
-  } catch(err) {
-    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "success",
+      total: orders.length,
+      orders: orders
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
   } finally {
     lock.releaseLock();
   }
@@ -381,45 +432,63 @@ function doPost(e) {
     var data = JSON.parse(e.postData.contents);
     var action = data.action || "add_order";
 
+    // 1. Mise à jour bidirectionnelle depuis le Dashboard (Statut, Commune, Remarques)
     if (action === "update_order") {
       var targetId = String(data.id || data.orderId || "").trim();
       var values = sheet.getDataRange().getValues();
       for (var i = 1; i < values.length; i++) {
         if (String(values[i][0]).trim() === targetId) {
-          if (data.status !== undefined) sheet.getRange(i + 1, 13).setValue(String(data.status).trim());
-          if (data.commune !== undefined) sheet.getRange(i + 1, 6).setValue(String(data.commune).trim());
-          if (data.notes !== undefined) sheet.getRange(i + 1, 14).setValue(String(data.notes).trim());
-          return ContentService.createTextOutput(JSON.stringify({ success: true, id: targetId })).setMimeType(ContentService.MimeType.JSON);
+          var row = i + 1;
+          if (data.status !== undefined) sheet.getRange(row, 4).setValue(String(data.status).trim());
+          if (data.commune !== undefined) sheet.getRange(row, 7).setValue(String(data.commune).trim());
+          if (data.notes !== undefined) sheet.getRange(row, 12).setValue(String(data.notes).trim());
+          return ContentService.createTextOutput(JSON.stringify({
+            status: "success",
+            id: targetId,
+            message: "Commande mise à jour avec succès"
+          })).setMimeType(ContentService.MimeType.JSON);
         }
       }
-      return ContentService.createTextOutput(JSON.stringify({ success: false, message: "Not found" })).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "error",
+        message: "Commande non trouvée: " + targetId
+      })).setMimeType(ContentService.MimeType.JSON);
     }
 
+    // 2. Ajout d'une nouvelle commande (12 colonnes standard)
+    var order = data.order || data;
+    var rowData = [
+      order.id || order.orderId || ("#" + (1000 + sheet.getLastRow())),
+      order.date || Utilities.formatDate(new Date(), "Africa/Algiers", "dd/MM/yyyy HH:mm"),
+      order.customer || order.fullName || "Client Web",
+      order.status || "Nouveau",
+      "'" + (order.phone || ""),
+      order.wilaya || "",
+      order.commune || "",
+      order.size || order.productName || "Produit",
+      order.shipping || (order.deliveryType === "home" ? "Domicile" : "Bureau"),
+      order.shippingFee || "600 DA",
+      order.total || "13 100 DA",
+      order.notes || "Commande boutique web"
+    ];
+
+    sheet.appendRow(rowData);
     var lastRow = sheet.getLastRow();
-    var orderId = data.orderId || data.id || ("#" + (1000 + Math.max(lastRow, 1)));
-    sheet.appendRow([
-      orderId,
-      data.date || Utilities.formatDate(new Date(), "Africa/Algiers", "yyyy-MM-dd HH:mm"),
-      data.fullName || "Client",
-      "'" + (data.phone || ""),
-      data.wilaya || "",
-      data.commune || "",
-      data.deliveryType || "المكتب (Bureau)",
-      data.productName || "Perceuse-Visseuse CROWN 20V",
-      data.quantity || 1,
-      data.productPrice || "12 500,00 DA",
-      data.shippingFee || "600,00 DA",
-      data.total || "13 100,00 DA",
-      data.status || "Nouveau (جديد)",
-      data.notes || "Commande boutique web"
-    ]);
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", orderId: orderId })).setMimeType(ContentService.MimeType.JSON);
-  } catch(err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+    sheet.getRange(lastRow, 1, 1, rowData.length).setHorizontalAlignment("center");
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "success",
+      id: rowData[0]
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
   } finally {
     lock.releaseLock();
   }
-}`;
+};`;
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -609,11 +678,11 @@ function doPost(e) {
 
               <button
                 onClick={() => exportOrdersToCSV(filteredOrders)}
-                title="Télécharger le fichier CSV officiel (14 colonnes bilingues)"
+                title="Télécharger le fichier CSV officiel (12 colonnes standard)"
                 className="flex items-center gap-1.5 rounded-xl border border-[var(--ed-line)] bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:border-slate-400 cursor-pointer"
               >
                 <Download size={14} />
-                <span>Exporter CSV (14 Col)</span>
+                <span>Exporter CSV (12 Col)</span>
               </button>
 
               <button
@@ -668,26 +737,57 @@ function doPost(e) {
             </div>
 
             {/* Filter & Search Bar */}
-            <div className="flex flex-col justify-between gap-3 rounded-2xl border border-[var(--ed-line)] bg-white p-4 sm:flex-row sm:items-center">
-              <div className="relative min-w-[260px] flex-1">
-                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Rechercher par nom, téléphone, wilaya, ID..."
-                  className="w-full rounded-xl border border-[var(--ed-line)] bg-[#faf9f6] py-2 pl-10 pr-4 text-xs sm:text-sm font-medium outline-none focus:border-[var(--ed-ink)]"
-                />
+            <div className="flex flex-col justify-between gap-3 rounded-2xl border border-[var(--ed-line)] bg-white p-4 lg:flex-row lg:items-center">
+              <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="relative min-w-[200px] flex-1">
+                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Rechercher par nom, tél, ID..."
+                    className="w-full rounded-xl border border-[var(--ed-line)] bg-[#faf9f6] py-2 pl-10 pr-4 text-xs sm:text-sm font-medium outline-none focus:border-[var(--ed-ink)]"
+                  />
+                </div>
+
+                {/* Wilaya Filter Dropdown */}
+                <div className="flex items-center gap-1.5 sm:w-56">
+                  <Filter size={14} className="text-slate-400 shrink-0" />
+                  <select
+                    value={wilayaFilter}
+                    onChange={(e) => setWilayaFilter(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--ed-line)] bg-[#faf9f6] px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-[var(--ed-ink)] cursor-pointer"
+                  >
+                    <option value="Toutes">Toutes les wilayas</option>
+                    {availableWilayas.map((w) => (
+                      <option key={w} value={w}>
+                        {w}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto">
-                {['Tous', 'Nouveau', 'Confirmé', 'En livraison', 'Livré', 'Annulé'].map((st) => (
+              {/* Status Filter Buttons */}
+              <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pt-1 lg:pt-0">
+                {[
+                  'Tous',
+                  'Nouveau',
+                  'Confirmé',
+                  'Reporté',
+                  'Tentative 1',
+                  'Tentative 2',
+                  'Tentative 3',
+                  'En livraison',
+                  'Livré',
+                  'Annulé',
+                ].map((st) => (
                   <button
                     key={st}
                     onClick={() => setStatusFilter(st)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                    className={`rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer whitespace-nowrap ${
                       statusFilter === st
-                        ? 'bg-[var(--ed-ink)] text-white'
+                        ? 'bg-[var(--ed-ink)] text-white shadow-xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
@@ -710,7 +810,7 @@ function doPost(e) {
                       <th className="px-4 py-3.5">Produit & Qté</th>
                       <th className="px-4 py-3.5">Total DZD</th>
                       <th className="px-4 py-3.5">Statut</th>
-                      <th className="px-4 py-3.5">Remarques</th>
+                      <th className="px-4 py-3.5">Remarques (Éditable)</th>
                       <th className="px-4 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -794,15 +894,57 @@ function doPost(e) {
                               >
                                 <option value="Nouveau">Nouveau</option>
                                 <option value="Confirmé">Confirmé</option>
+                                <option value="Reporté">Reporté</option>
+                                <option value="Tentative 1">Tentative 1</option>
+                                <option value="Tentative 2">Tentative 2</option>
+                                <option value="Tentative 3">Tentative 3</option>
                                 <option value="En livraison">En livraison</option>
                                 <option value="Livré">Livré</option>
                                 <option value="Annulé">Annulé</option>
                               </select>
                             </td>
 
-                            {/* Notes / Remarques */}
-                            <td className="max-w-[150px] px-4 py-3.5 align-middle text-xs text-slate-500 truncate">
-                              {order.notes || '—'}
+                            {/* Notes / Remarques (In-line editable with auto-sync) */}
+                            <td className="max-w-[200px] px-4 py-3.5 align-middle text-xs">
+                              {editingNoteId === order.id ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="text"
+                                    value={tempNoteText}
+                                    onChange={(e) => setTempNoteText(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleNoteSave(order.id);
+                                      if (e.key === 'Escape') setEditingNoteId(null);
+                                    }}
+                                    autoFocus
+                                    className="w-full rounded border border-blue-400 bg-white px-1.5 py-0.5 text-xs text-slate-800 outline-none"
+                                  />
+                                  <button
+                                    onClick={() => handleNoteSave(order.id)}
+                                    className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-emerald-700 cursor-pointer"
+                                  >
+                                    ✓
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingNoteId(null)}
+                                    className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600 hover:bg-slate-300 cursor-pointer"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ) : (
+                                <div
+                                  onClick={() => {
+                                    setEditingNoteId(order.id);
+                                    setTempNoteText(order.notes || '');
+                                  }}
+                                  title="Cliquer pour modifier la remarque"
+                                  className="group flex cursor-pointer items-center justify-between gap-1 text-slate-600 hover:text-blue-600"
+                                >
+                                  <span className="truncate">{order.notes || '—'}</span>
+                                  <span className="hidden text-[10px] text-slate-400 group-hover:inline">✏️</span>
+                                </div>
+                              )}
                             </td>
 
                             {/* Actions */}
@@ -1028,7 +1170,7 @@ function doPost(e) {
               <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                    Feuille Google Sheet Connectée (14 Colonnes Bilingues)
+                    Feuille Google Sheet Connectée (12 Colonnes Standard)
                   </span>
                   <h2 className="ed-display mt-2 text-2xl font-black">
                     Spreadsheet Officielle & Synchronisation
@@ -1072,15 +1214,15 @@ function doPost(e) {
                     Fichiers Prêts et Synchronisés dans Votre Drive
                   </h2>
                   <p className="mt-1 text-xs text-slate-500">
-                    Tous les fichiers avec configuration complète (14 colonnes bilingues) sont créés dans votre Google Drive local :
+                    Tous les fichiers avec configuration complète (12 colonnes standard) sont créés dans votre Google Drive local :
                   </p>
                   <ul className="mt-3 space-y-1.5 text-xs font-mono text-slate-700">
                     <li>📊 <strong>G:\Mon Drive\KADYA_DZ_COMMANDES_ET_VENTES_PRO.xlsx</strong> (Classeur Maître 3 onglets : Commandes, Analytics & Paramètres)</li>
                     <li>⚡ <strong>G:\Mon Drive\Kadya_Admin_Commandes.html</strong> (Application d'administration locale autonome pour PC)</li>
                     <li>🚀 <strong>G:\Mon Drive\LANCER_GESTION_COMMANDES.bat</strong> (Lanceur rapide en 1 clic pour Windows)</li>
-                    <li>📊 <strong>G:\Mon Drive\KADYA_DZ_COMMANDES_OFFICIEL.xlsx</strong> (Classeur Excel structuré avec les 14 colonnes)</li>
-                    <li>📄 <strong>G:\Mon Drive\KADYA DZ COMMANDE.csv</strong> (Fichier CSV UTF-8 BOM avec les 14 colonnes)</li>
-                    <li>⚡ <strong>G:\Mon Drive\CODE_APPS_SCRIPT_PRET.js</strong> (Script de synchronisation 14 colonnes)</li>
+                    <li>📊 <strong>G:\Mon Drive\KADYA_DZ_COMMANDES_OFFICIEL.xlsx</strong> (Classeur Excel structuré avec les 12 colonnes)</li>
+                    <li>📄 <strong>G:\Mon Drive\KADYA DZ COMMANDE.csv</strong> (Fichier CSV UTF-8 BOM avec les 12 colonnes)</li>
+                    <li>⚡ <strong>G:\Mon Drive\CODE_APPS_SCRIPT_PRET.js</strong> (Script de synchronisation 12 colonnes bidirectionnel)</li>
                   </ul>
                 </div>
 

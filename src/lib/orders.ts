@@ -1,4 +1,39 @@
-export type OrderStatus = 'Nouveau' | 'Confirmé' | 'En livraison' | 'Livré' | 'Annulé';
+export type OrderStatus =
+  | 'Nouveau'
+  | 'Confirmé'
+  | 'Reporté'
+  | 'Annulé'
+  | 'Tentative 1'
+  | 'Tentative 2'
+  | 'Tentative 3'
+  | 'En livraison'
+  | 'Livré';
+
+export const ALL_ORDER_STATUSES: OrderStatus[] = [
+  'Nouveau',
+  'Confirmé',
+  'Reporté',
+  'Tentative 1',
+  'Tentative 2',
+  'Tentative 3',
+  'En livraison',
+  'Livré',
+  'Annulé',
+];
+
+export function normalizeStatus(raw: string): OrderStatus {
+  const s = (raw || '').trim();
+  if (s === 'جديد' || s.toLowerCase() === 'nouveau' || s.includes('Nouveau')) return 'Nouveau';
+  if (s === 'مؤكدة' || s === 'مؤكد' || s.toLowerCase() === 'confirmé' || s.toLowerCase() === 'confirme' || s.includes('Confirm')) return 'Confirmé';
+  if (s === 'مؤجلة' || s === 'مؤجل' || s.toLowerCase() === 'reporté' || s.toLowerCase() === 'reporte' || s.includes('Report')) return 'Reporté';
+  if (s === 'ملغاة' || s === 'ملغى' || s.toLowerCase() === 'annulé' || s.toLowerCase() === 'annule' || s.includes('Annul')) return 'Annulé';
+  if (s === 'فاشلة 1' || s.toLowerCase() === 'tentative 1' || s.includes('Tentative 1')) return 'Tentative 1';
+  if (s === 'فاشلة 2' || s.toLowerCase() === 'tentative 2' || s.includes('Tentative 2')) return 'Tentative 2';
+  if (s === 'فاشلة 3' || s.toLowerCase() === 'tentative 3' || s.includes('Tentative 3')) return 'Tentative 3';
+  if (s === 'قيد التوصيل' || s.toLowerCase().includes('livraison')) return 'En livraison';
+  if (s === 'تم التوصيل' || s === 'مسلّم' || s.toLowerCase() === 'livré' || s.toLowerCase() === 'livre' || s.includes('Livr')) return 'Livré';
+  return 'Nouveau';
+}
 
 export interface Order {
   id: string;
@@ -37,7 +72,7 @@ const INITIAL_ORDERS: Order[] = [
     date: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
     fullName: 'Hani Test',
     phone: '0550123456',
-    wilaya: '16 - الجزائر (Alger)',
+    wilaya: '16 - Alger',
     commune: 'Alger Centre',
     deliveryType: 'desk',
     productName: 'Perceuse-Visseuse CROWN 20V CT21055LM',
@@ -54,7 +89,7 @@ const INITIAL_ORDERS: Order[] = [
     date: new Date(Date.now() - 1000 * 60 * 140).toISOString(),
     fullName: 'Karim Benali',
     phone: '0661987654',
-    wilaya: '31 - وهران (Oran)',
+    wilaya: '31 - Oran',
     commune: 'Es Senia',
     deliveryType: 'home',
     productName: 'Niveau Laser INGCO 3D 12 Lignes',
@@ -71,7 +106,7 @@ const INITIAL_ORDERS: Order[] = [
     date: new Date(Date.now() - 1000 * 60 * 360).toISOString(),
     fullName: 'Youcef Belkacem',
     phone: '0770334455',
-    wilaya: '25 - قسنطينة (Constantine)',
+    wilaya: '25 - Constantine',
     commune: 'El Khroub',
     deliveryType: 'desk',
     productName: 'Meuleuse d’angle INGCO 115mm 1010W',
@@ -88,7 +123,7 @@ const INITIAL_ORDERS: Order[] = [
     date: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
     fullName: 'Redha Mebarki',
     phone: '0561223344',
-    wilaya: '19 - سطيف (Sétif)',
+    wilaya: '19 - Sétif',
     commune: 'Sétif Ville',
     deliveryType: 'desk',
     productName: 'Poste à souder Inverter MMA 200A',
@@ -105,7 +140,7 @@ const INITIAL_ORDERS: Order[] = [
     date: new Date(Date.now() - 1000 * 60 * 60 * 36).toISOString(),
     fullName: 'Sofiane Mansouri',
     phone: '0658443322',
-    wilaya: '09 - البليدة (Blida)',
+    wilaya: '09 - Blida',
     commune: 'Boufarik',
     deliveryType: 'home',
     productName: 'Boîte à outils complète 108 pièces BEETRO',
@@ -182,6 +217,34 @@ export function updateOrderStatus(id: string, status: OrderStatus): void {
   if (typeof window !== 'undefined') {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   }
+  // Bidirectional sync update to Google Sheet
+  syncOrderUpdateToGoogleSheet(id, { status }).catch((e) =>
+    console.warn('Background sync status update error:', e)
+  );
+}
+
+export function updateOrderNotes(id: string, notes: string): void {
+  const orders = getOrders();
+  const updated = orders.map((o) => (o.id === id ? { ...o, notes } : o));
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  }
+  // Bidirectional sync update to Google Sheet
+  syncOrderUpdateToGoogleSheet(id, { notes }).catch((e) =>
+    console.warn('Background sync notes update error:', e)
+  );
+}
+
+export function updateOrderCommune(id: string, commune: string): void {
+  const orders = getOrders();
+  const updated = orders.map((o) => (o.id === id ? { ...o, commune } : o));
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  }
+  // Bidirectional sync update to Google Sheet
+  syncOrderUpdateToGoogleSheet(id, { commune }).catch((e) =>
+    console.warn('Background sync commune update error:', e)
+  );
 }
 
 export function deleteOrder(id: string): void {
@@ -221,6 +284,54 @@ export function saveSheetSettings(settings: { sheetUrl?: string; webhookUrl: str
   );
 }
 
+export async function syncOrderUpdateToGoogleSheet(
+  id: string,
+  updates: Partial<{ status: OrderStatus; notes: string; commune: string }>
+): Promise<boolean> {
+  const settings = getSheetSettings();
+  const targetUrl = (settings.webhookUrl || '').trim();
+
+  const payload = {
+    action: 'update_order',
+    id,
+    status: updates.status,
+    notes: updates.notes,
+    commune: updates.commune,
+    webhookUrl: targetUrl || undefined,
+  };
+
+  // 1. Post via /api/order
+  try {
+    const apiRes = await fetch('/api/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (apiRes.ok) return true;
+  } catch (err) {
+    console.warn('Backend /api/order update failed:', err);
+  }
+
+  // 2. Direct Webhook fallback
+  if (targetUrl) {
+    try {
+      await fetch(targetUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return true;
+    } catch (e) {
+      console.error('Direct webhook update failed:', e);
+      return false;
+    }
+  }
+
+  return false;
+}
+
 export async function syncOrderToGoogleSheet(
   order: Order,
   customWebhookUrl?: string
@@ -231,10 +342,25 @@ export async function syncOrderToGoogleSheet(
   const formattedDate = new Date(order.date).toLocaleString('fr-FR', {
     timeZone: 'Africa/Algiers',
   });
-  const deliveryLabel =
-    order.deliveryType === 'desk' ? 'المكتب (Bureau)' : 'المنزل (Domicile)';
+  const deliveryLabel = order.deliveryType === 'desk' ? 'Bureau' : 'Domicile';
 
   const payload = {
+    action: 'add_order',
+    order: {
+      id: order.id,
+      date: formattedDate,
+      customer: order.fullName,
+      status: order.status,
+      phone: order.phone,
+      wilaya: order.wilaya,
+      commune: order.commune || '',
+      size: order.productName,
+      shipping: deliveryLabel,
+      shippingFee: `${(order.shippingFee || 600).toLocaleString('fr-DZ')} DA`,
+      total: `${order.total.toLocaleString('fr-DZ')} DA`,
+      notes: order.notes || 'Commande boutique web',
+    },
+    // Also flat fields for legacy GAS scripts
     orderId: order.id,
     date: formattedDate,
     fullName: order.fullName,
@@ -247,7 +373,7 @@ export async function syncOrderToGoogleSheet(
     productPrice: `${(order.productPrice || order.total - (order.shippingFee || 600)).toLocaleString('fr-DZ')} DA`,
     shippingFee: `${(order.shippingFee || 600).toLocaleString('fr-DZ')} DA`,
     total: `${order.total.toLocaleString('fr-DZ')} DA`,
-    status: order.status === 'Nouveau' ? 'Nouveau (جديد)' : order.status,
+    status: order.status,
     notes: order.notes || 'Commande boutique web',
     webhookUrl: targetUrl || undefined,
   };
@@ -372,7 +498,28 @@ function parseCSVOrders(csvText: string): Order[] {
   const orders: Order[] = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(',').map((c) => c.replace(/^"|"$/g, '').trim());
-    if (cols.length >= 4) {
+    if (cols.length < 4) continue;
+
+    // Check if 12-column matjari-store format
+    if (cols.length === 12) {
+      orders.push({
+        id: cols[0] || `#${1000 + i}`,
+        date: cols[1] || new Date().toISOString(),
+        fullName: cols[2] || '',
+        status: normalizeStatus(cols[3]),
+        phone: (cols[4] || '').replace(/^'/, ''),
+        wilaya: cols[5] || '',
+        commune: cols[6] || '',
+        productName: cols[7] || '',
+        deliveryType: (cols[8] || '').includes('منزل') || (cols[8] || '').toLowerCase().includes('domicile') ? 'home' : 'desk',
+        shippingFee: parseInt(String(cols[9] || '600').replace(/[^\d]/g, ''), 10) || 600,
+        total: parseInt(String(cols[10] || '').replace(/[^\d]/g, ''), 10) || 0,
+        notes: cols[11] || '',
+        quantity: 1,
+        syncedToSheet: true,
+      });
+    } else {
+      // 14-column fallback
       orders.push({
         id: cols[0] || `#${1000 + i}`,
         date: cols[1] || new Date().toISOString(),
@@ -385,16 +532,9 @@ function parseCSVOrders(csvText: string): Order[] {
         deliveryTypeRaw: cols[6] || '',
         productName: cols[7] || '',
         quantity: parseInt(cols[8], 10) || 1,
+        shippingFee: parseInt(String(cols[10] || '600').replace(/[^\d]/g, ''), 10) || 600,
         total: parseInt(String(cols[11] || '').replace(/[^\d]/g, ''), 10) || 0,
-        status: (cols[12] || 'Nouveau').includes('Confirm')
-          ? 'Confirmé'
-          : (cols[12] || '').includes('livraison')
-          ? 'En livraison'
-          : (cols[12] || '').includes('Livr')
-          ? 'Livré'
-          : (cols[12] || '').includes('Annul')
-          ? 'Annulé'
-          : 'Nouveau',
+        status: normalizeStatus(cols[12] || 'Nouveau'),
         notes: cols[13] || '',
         syncedToSheet: true,
       });
@@ -408,42 +548,36 @@ export function exportOrdersToCSV(ordersToExport?: Order[]): void {
   if (!orders.length) return;
 
   const headers = [
-    'N° Commande / رقم الطلب',
-    'Date / التاريخ',
-    'Nom & Prénom / الاسم واللقب',
-    'Téléphone / رقم الهاتف',
-    'الولاية',
-    'البلدية / العنوان',
-    'Type de livraison / نوع التوصيل',
-    'Produit / المنتج',
-    'Quantité / الكمية',
-    'سعر المنتج',
-    'تكلفة الشحن',
-    'المجموع الإجمالي',
-    'Statut / حالة الطلب',
-    'Remarques / ملاحظات',
+    'N° Commande',
+    'Date',
+    'Nom & Prénom',
+    'Statut',
+    'Téléphone',
+    'Wilaya',
+    'Commune',
+    'Produit / Réf',
+    'Mode de livraison',
+    'Tarif de livraison',
+    'Total',
+    'Remarques',
   ];
 
   const rows = orders.map((o) => {
-    const subtotal = o.productPrice || o.total - (o.shippingFee || 600);
     const shipping = o.shippingFee || 600;
-    const deliveryStr =
-      o.deliveryType === 'desk' ? 'المكتب (Bureau)' : 'المنزل (Domicile)';
+    const deliveryStr = o.deliveryType === 'desk' ? 'Bureau' : 'Domicile';
 
     return [
       `"${o.id}"`,
       `"${new Date(o.date).toLocaleString('fr-FR')}"`,
       `"${(o.fullName || '').replace(/"/g, '""')}"`,
+      `"${o.status}"`,
       `"'${o.phone || ''}"`,
       `"${(o.wilaya || '').replace(/"/g, '""')}"`,
       `"${(o.commune || '').replace(/"/g, '""')}"`,
-      `"${deliveryStr}"`,
       `"${(o.productName || '').replace(/"/g, '""')}"`,
-      o.quantity,
-      `"${subtotal.toLocaleString('fr-DZ')} DA"`,
+      `"${deliveryStr}"`,
       `"${shipping.toLocaleString('fr-DZ')} DA"`,
       `"${o.total.toLocaleString('fr-DZ')} DA"`,
-      `"${o.status}"`,
       `"${(o.notes || '').replace(/"/g, '""')}"`,
     ];
   });
@@ -453,7 +587,7 @@ export function exportOrdersToCSV(ordersToExport?: Order[]): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `kadya_dz_commandes_14_colonnes_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.setAttribute('download', `kadya_dz_commandes_12_colonnes_${new Date().toISOString().slice(0, 10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
